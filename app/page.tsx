@@ -1,316 +1,297 @@
 import {
-  Sparkles,
-  Zap,
-  Shield,
+  Video,
+  Calendar,
   Heart,
+  MessageSquare,
+  Sparkles,
+  Mic,
+  Users,
   ArrowRight,
+  Play,
+  Shield,
+  Clock,
   Star,
-  Check,
-  Github,
-  Twitter,
-  Linkedin,
+  Mail,
 } from "lucide-react";
+import Navbar from "@/components/Navbar";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden">
+    <div className="min-h-screen bg-white text-slate-900">
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-slate-950/70 border-b border-slate-800/50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/50">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-2xl font-extrabold tracking-tight gradient-text drop-shadow-[0_0_15px_rgba(167,139,250,0.5)]">HelloForever</span>
-          </div>
-          <div className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-slate-300 hover:text-white transition-colors">Features</a>
-            <a href="#testimonials" className="text-slate-300 hover:text-white transition-colors">Testimonials</a>
-            <a href="#pricing" className="text-slate-300 hover:text-white transition-colors">Pricing</a>
-          </div>
-          <button className="px-5 py-2 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 transition-all font-medium text-sm">
-            Get Started
-          </button>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 px-6">
-        {/* Background decorations */}
-        <div className="absolute top-20 left-10 w-72 h-72 bg-violet-500/30 rounded-full blur-[128px] animate-pulse-glow" />
-        <div className="absolute top-40 right-10 w-96 h-96 bg-fuchsia-500/20 rounded-full blur-[128px] animate-pulse-glow" />
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[128px]" />
+      <section className="relative pt-32 pb-24 px-6 overflow-hidden">
+        {/* Background gradient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-purple-50" />
+        <div className="absolute top-20 left-1/4 w-96 h-96 bg-blue-200/40 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-200/40 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-orange-100/30 rounded-full blur-3xl" />
 
-        <div className="max-w-7xl mx-auto relative">
-          <div className="text-center max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto relative">
+          <div className="text-center max-w-3xl mx-auto">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/50 border border-slate-700/50 mb-8">
-              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-sm text-slate-300">Now in Public Beta</span>
-              <ArrowRight className="w-4 h-4 text-slate-400" />
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 border border-blue-200 mb-8">
+              <Sparkles className="w-4 h-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-700">Preserve your voice, forever</span>
             </div>
 
             {/* Main headline */}
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-              Build Something{" "}
-              <span className="gradient-text">Beautiful</span>
-              <br />
-              That Lasts{" "}
-              <span className="gradient-text">Forever</span>
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight tracking-tight">
+              Messages That Last{" "}
+              <span className="bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 bg-clip-text text-transparent">
+                Forever
+              </span>
             </h1>
 
             {/* Subheadline */}
-            <p className="text-xl text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-              Create stunning digital experiences with our powerful platform.
-              Simple enough for beginners, powerful enough for experts.
+            <p className="text-xl md:text-2xl text-slate-600 mb-10 leading-relaxed max-w-2xl mx-auto">
+              Leave video messages for loved ones. Deliver them at the perfect moment—even after you're gone.
             </p>
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-              <button className="group px-8 py-4 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 transition-all font-semibold text-lg flex items-center gap-2 shadow-lg shadow-violet-500/25">
-                Start Building Free
+              <button className="group px-8 py-4 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold text-lg flex items-center gap-2 shadow-xl shadow-orange-500/30 hover:shadow-2xl hover:shadow-orange-500/40 transition-all hover:-translate-y-1">
+                Start Free
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
-              <button className="px-8 py-4 rounded-full border border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 transition-all font-semibold text-lg">
-                Watch Demo
+              <button className="group px-8 py-4 rounded-full border-2 border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all font-semibold text-lg flex items-center gap-2">
+                <Play className="w-5 h-5 text-blue-600" />
+                Learn More
               </button>
             </div>
 
-            {/* Social proof */}
-            <div className="flex flex-col items-center gap-4">
-              <div className="flex -space-x-3">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div
-                    key={i}
-                    className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 border-2 border-slate-900 flex items-center justify-center text-sm font-medium"
-                  >
-                    {String.fromCharCode(64 + i)}
-                  </div>
-                ))}
+            {/* Trust indicators */}
+            <div className="flex flex-wrap items-center justify-center gap-8 text-slate-500">
+              <div className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-green-500" />
+                <span className="text-sm font-medium">Bank-level encryption</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="flex">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                  ))}
-                </div>
-                <span className="text-slate-400">
-                  Loved by <span className="text-white font-semibold">10,000+</span> creators
-                </span>
+                <Clock className="w-5 h-5 text-blue-500" />
+                <span className="text-sm font-medium">Delivered on your schedule</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Star className="w-5 h-5 text-orange-500" />
+                <span className="text-sm font-medium">Trusted by 10,000+ families</span>
               </div>
             </div>
           </div>
 
           {/* Hero visual */}
-          <div className="mt-20 relative">
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent z-10 pointer-events-none" />
-            <div className="gradient-border rounded-2xl overflow-hidden shadow-2xl shadow-violet-500/10">
-              <div className="bg-slate-900 p-2">
+          <div className="mt-20 relative max-w-4xl mx-auto">
+            <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent z-10 pointer-events-none" />
+            <div className="rounded-2xl overflow-hidden shadow-2xl shadow-blue-200/50 border border-slate-200">
+              <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-4">
                 <div className="flex gap-2 mb-4">
-                  <div className="w-3 h-3 rounded-full bg-red-500" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                  <div className="w-3 h-3 rounded-full bg-green-500" />
+                  <div className="w-3 h-3 rounded-full bg-red-400" />
+                  <div className="w-3 h-3 rounded-full bg-amber-400" />
+                  <div className="w-3 h-3 rounded-full bg-green-400" />
                 </div>
-                <div className="bg-slate-800/50 rounded-lg p-8 min-h-[300px] flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center animate-float">
-                      <Sparkles className="w-10 h-10" />
-                    </div>
-                    <p className="text-slate-400 text-lg">Your amazing project lives here</p>
+                <div className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 rounded-xl p-12 flex flex-col items-center justify-center min-h-[300px]">
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center mb-6 shadow-xl shadow-blue-500/30">
+                    <Video className="w-12 h-12 text-white" />
                   </div>
+                  <p className="text-white/80 text-lg font-medium">Record your message today</p>
+                  <p className="text-white/60 text-sm mt-2">It will reach them when they need it most</p>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section id="how-it-works" className="py-24 px-6 bg-gradient-to-br from-slate-50 to-blue-50/50">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">
+              How It Works
+            </h2>
+            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+              Three simple steps to create messages that will touch hearts for generations
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
+            {[
+              {
+                icon: Video,
+                step: "01",
+                title: "Record Your Messages",
+                description: "Create heartfelt video or audio messages for your loved ones. Say what matters most, in your own voice.",
+                color: "from-blue-500 to-blue-600",
+              },
+              {
+                icon: Calendar,
+                step: "02",
+                title: "Schedule Delivery",
+                description: "Choose when your messages arrive—birthdays, anniversaries, milestones, or after you're gone.",
+                color: "from-purple-500 to-purple-600",
+              },
+              {
+                icon: Heart,
+                step: "03",
+                title: "They Receive Your Love",
+                description: "Your loved ones receive your message at exactly the right moment, wrapped in your love.",
+                color: "from-orange-400 to-orange-500",
+              },
+            ].map((item, i) => (
+              <div key={i} className="relative group">
+                <div className="bg-white rounded-2xl p-8 shadow-lg shadow-slate-200/50 border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                  <div className="text-6xl font-bold text-slate-100 absolute top-4 right-6">
+                    {item.step}
+                  </div>
+                  <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 transition-transform`}>
+                    <item.icon className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-3">{item.title}</h3>
+                  <p className="text-slate-600 leading-relaxed">{item.description}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-24 px-6 relative">
-        <div className="absolute left-0 top-1/2 w-96 h-96 bg-violet-500/10 rounded-full blur-[128px]" />
-
-        <div className="max-w-7xl mx-auto relative">
+      <section id="features" className="py-24 px-6">
+        <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Everything You Need to{" "}
-              <span className="gradient-text">Succeed</span>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">
+              Powered by AI,{" "}
+              <span className="bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
+                Delivered with Love
+              </span>
             </h2>
-            <p className="text-xl text-slate-400 max-w-2xl mx-auto">
-              Powerful features designed to help you create, launch, and scale your ideas.
+            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+              Advanced technology meets heartfelt connection
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
             {[
               {
-                icon: Zap,
-                title: "Lightning Fast",
-                description: "Built for speed with optimized performance that keeps your users engaged.",
-                color: "from-yellow-400 to-orange-500",
-              },
-              {
-                icon: Shield,
-                title: "Secure by Default",
-                description: "Enterprise-grade security to protect your data and your users.",
-                color: "from-emerald-400 to-cyan-500",
-              },
-              {
-                icon: Heart,
-                title: "Made with Love",
-                description: "Crafted with attention to every detail for the best experience.",
-                color: "from-pink-400 to-rose-500",
+                icon: MessageSquare,
+                title: "AI Conversation Mode",
+                description: "Our AI helps preserve your personality, letting loved ones have meaningful conversations with your digital presence.",
+                color: "bg-blue-100 text-blue-600",
               },
               {
                 icon: Sparkles,
-                title: "AI Powered",
-                description: "Intelligent features that adapt and learn from your needs.",
-                color: "from-violet-400 to-purple-500",
+                title: "Surprise Delivery",
+                description: "Schedule messages for future birthdays, graduations, weddings, or any milestone you want to celebrate with them.",
+                color: "bg-purple-100 text-purple-600",
               },
               {
-                icon: Check,
-                title: "Easy Integration",
-                description: "Connect with your favorite tools in just a few clicks.",
-                color: "from-blue-400 to-indigo-500",
+                icon: Mic,
+                title: "Voice Preservation",
+                description: "Advanced AI captures the unique qualities of your voice, preserving how you sound for future generations.",
+                color: "bg-orange-100 text-orange-600",
               },
               {
-                icon: Star,
-                title: "Premium Support",
-                description: "24/7 dedicated support team ready to help you succeed.",
-                color: "from-amber-400 to-yellow-500",
+                icon: Users,
+                title: "Family Legacy",
+                description: "Create a lasting family archive. Share stories, wisdom, and love across generations.",
+                color: "bg-pink-100 text-pink-600",
               },
             ].map((feature, i) => (
               <div
                 key={i}
-                className="group p-8 rounded-2xl bg-slate-800/30 border border-slate-700/50 hover:border-slate-600 hover:bg-slate-800/50 transition-all duration-300"
+                className="group p-8 rounded-2xl bg-white border border-slate-200 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-100/50 transition-all duration-300"
               >
-                <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
-                  <feature.icon className="w-7 h-7 text-white" />
+                <div className={`w-14 h-14 rounded-xl ${feature.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
+                  <feature.icon className="w-7 h-7" />
                 </div>
-                <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
-                <p className="text-slate-400 leading-relaxed">{feature.description}</p>
+                <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
+                <p className="text-slate-600 leading-relaxed">{feature.description}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Testimonials Section */}
-      <section id="testimonials" className="py-24 px-6 relative">
-        <div className="absolute right-0 top-1/2 w-96 h-96 bg-fuchsia-500/10 rounded-full blur-[128px]" />
-
-        <div className="max-w-7xl mx-auto relative">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Loved by{" "}
-              <span className="gradient-text">Creators</span>
-            </h2>
-            <p className="text-xl text-slate-400 max-w-2xl mx-auto">
-              See what our community has to say about their experience.
-            </p>
+      {/* Pricing Teaser */}
+      <section id="pricing" className="py-24 px-6 bg-gradient-to-br from-blue-50 via-purple-50 to-orange-50">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-100 border border-green-200 mb-6">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-sm font-medium text-green-700">No credit card required</span>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                name: "Sarah Chen",
-                role: "Product Designer",
-                content: "HelloForever transformed how I build products. The intuitive interface and powerful features saved me countless hours.",
-                avatar: "SC",
-              },
-              {
-                name: "Marcus Johnson",
-                role: "Startup Founder",
-                content: "I launched my MVP in just 2 weeks. The platform is incredibly well-designed and the support team is amazing.",
-                avatar: "MJ",
-              },
-              {
-                name: "Emily Rodriguez",
-                role: "Creative Director",
-                content: "The best decision I made for my agency. Our clients love the results and we've doubled our output.",
-                avatar: "ER",
-              },
-            ].map((testimonial, i) => (
-              <div
-                key={i}
-                className="p-8 rounded-2xl bg-slate-800/30 border border-slate-700/50 hover:border-slate-600 transition-all"
-              >
-                <div className="flex mb-4">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star key={star} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                  ))}
-                </div>
-                <p className="text-slate-300 mb-6 leading-relaxed">&ldquo;{testimonial.content}&rdquo;</p>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center font-semibold">
-                    {testimonial.avatar}
-                  </div>
-                  <div>
-                    <div className="font-semibold">{testimonial.name}</div>
-                    <div className="text-slate-400 text-sm">{testimonial.role}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <h2 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">
+            Start Free Today
+          </h2>
+          <p className="text-xl text-slate-600 mb-8 max-w-2xl mx-auto">
+            Record your first 3 messages completely free. Upgrade to Premium for unlimited messages, AI features, and priority delivery.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+            <button className="group px-8 py-4 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold text-lg flex items-center gap-2 shadow-xl shadow-orange-500/30 hover:shadow-2xl hover:shadow-orange-500/40 transition-all hover:-translate-y-1">
+              Create Free Account
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+            <button className="px-8 py-4 rounded-full border-2 border-slate-300 hover:border-blue-400 hover:bg-white transition-all font-semibold text-lg">
+              View Full Pricing
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-6 text-slate-500 text-sm">
+            <span>✓ 3 free messages</span>
+            <span>✓ Video & audio</span>
+            <span>✓ Scheduled delivery</span>
+            <span>✓ Secure encryption</span>
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section id="pricing" className="py-24 px-6 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-violet-950/20 to-transparent" />
+      {/* Final CTA */}
+      <section className="py-24 px-6 bg-gradient-to-br from-slate-900 via-blue-950 to-purple-950 text-white">
+        <div className="max-w-4xl mx-auto text-center">
+          <Heart className="w-16 h-16 mx-auto mb-8 text-orange-400" />
 
-        <div className="max-w-4xl mx-auto relative">
-          <div className="text-center p-12 rounded-3xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 backdrop-blur-sm">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Ready to Get{" "}
-              <span className="gradient-text">Started?</span>
-            </h2>
-            <p className="text-xl text-slate-400 mb-8 max-w-2xl mx-auto">
-              Join thousands of creators building amazing things. Start free, upgrade when you need to.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button className="group px-8 py-4 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 transition-all font-semibold text-lg flex items-center gap-2 shadow-lg shadow-violet-500/25">
-                Start Building Free
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </button>
-              <button className="px-8 py-4 rounded-full border border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 transition-all font-semibold text-lg">
-                Talk to Sales
-              </button>
-            </div>
-            <p className="text-slate-500 mt-6 text-sm">No credit card required</p>
-          </div>
+          <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">
+            Start Your Legacy Today
+          </h2>
+          <p className="text-xl text-slate-300 mb-10 max-w-2xl mx-auto leading-relaxed">
+            The words you share today become treasured gifts tomorrow. Don't wait to tell the people you love what they mean to you.
+          </p>
+
+          <button className="group px-10 py-5 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white font-bold text-lg flex items-center gap-2 mx-auto shadow-2xl shadow-orange-500/30 hover:shadow-orange-500/50 transition-all hover:-translate-y-1">
+            Create Free Account
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          </button>
+
+          <p className="text-slate-400 mt-8 text-sm">
+            Join 10,000+ people preserving their most important messages
+          </p>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-12 px-6 border-t border-slate-800/50">
-        <div className="max-w-7xl mx-auto">
+      <footer id="contact" className="py-12 px-6 bg-slate-900 text-white border-t border-slate-800">
+        <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/50">
-                <Sparkles className="w-6 h-6 text-white" />
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                <Heart className="w-5 h-5 text-white fill-white" />
               </div>
-              <span className="text-2xl font-extrabold tracking-tight gradient-text">HelloForever</span>
+              <span className="text-xl font-bold">HelloForever</span>
             </div>
-            <div className="flex items-center gap-6 text-slate-400">
-              <a href="#" className="hover:text-white transition-colors">Privacy</a>
-              <a href="#" className="hover:text-white transition-colors">Terms</a>
-              <a href="#" className="hover:text-white transition-colors">Contact</a>
-            </div>
-            <div className="flex items-center gap-4">
-              <a href="#" className="w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors">
-                <Twitter className="w-5 h-5" />
-              </a>
-              <a href="#" className="w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors">
-                <Github className="w-5 h-5" />
-              </a>
-              <a href="#" className="w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors">
-                <Linkedin className="w-5 h-5" />
+
+            <div className="flex items-center gap-8 text-slate-400">
+              <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
+              <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
+              <a href="mailto:hello@helloforever.com" className="hover:text-white transition-colors flex items-center gap-2">
+                <Mail className="w-4 h-4" />
+                Contact
               </a>
             </div>
           </div>
-          <div className="text-center mt-8 text-slate-500 text-sm">
-            &copy; 2024 HelloForever. All rights reserved.
+
+          <div className="text-center mt-8 pt-8 border-t border-slate-800 text-slate-500 text-sm">
+            © 2026 HelloForever. All rights reserved. Made with love for the ones you love.
           </div>
         </div>
       </footer>
