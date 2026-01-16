@@ -177,7 +177,7 @@ export default function DashboardPage() {
         </h3>
         <div className="flex flex-wrap gap-3">
           <Link
-            href="/dashboard/messages/new"
+            href="/dashboard/messages/create"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5 transition-all"
           >
             <Plus className="w-5 h-5" />
@@ -323,7 +323,7 @@ export default function DashboardPage() {
             or write something special for your loved ones.
           </p>
           <Link
-            href="/dashboard/messages/new"
+            href="/dashboard/messages/create"
             className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold text-lg shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5 transition-all"
           >
             <Plus className="w-5 h-5" />
