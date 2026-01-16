@@ -1,0 +1,206 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============== ENUMS ==============
+
+enum Plan {
+  FREE
+  PREMIUM
+  PREMIUM_PLUS
+  FAMILY
+}
+
+enum MessageType {
+  VIDEO
+  AUDIO
+  TEXT
+}
+
+enum DeliveryType {
+  SPECIFIC_DATE
+  UPON_PASSING
+  MILESTONE
+  SURPRISE
+}
+
+enum MessageStatus {
+  DRAFT
+  SCHEDULED
+  DELIVERED
+}
+
+enum Milestone {
+  BIRTHDAY
+  WEDDING
+  GRADUATION
+  ANNIVERSARY
+  FIRST_CHILD
+  RETIREMENT
+  NEW_YEAR
+  CHRISTMAS
+  OTHER
+}
+
+enum Relationship {
+  CHILD
+  SPOUSE
+  PARENT
+  SIBLING
+  FRIEND
+  OTHER
+}
+
+enum SubscriptionPlan {
+  PREMIUM
+  PREMIUM_PLUS
+  FAMILY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+}
+
+// ============== MODELS ==============
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  name         String
+  password     String    // hashed
+  phone        String?
+  birthday     DateTime?
+  avatar       String?   // URL to avatar image
+  plan         Plan      @default(FREE)
+  storageUsed  Int       @default(0) // in MB
+  messageCount Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relationships
+  messages     Message[]
+  recipients   Recipient[]
+  trustee      Trustee?
+  subscription Subscription?
+
+  @@map("users")
+}
+
+model Message {
+  id            String        @id @default(uuid())
+  userId        String
+  title         String
+  type          MessageType
+  content       String?       @db.Text // file URL for video/audio, text content for text messages
+  thumbnail     String?       // URL to thumbnail image
+  duration      Int?          // in seconds for video/audio
+  recipientId   String
+  deliveryType  DeliveryType
+  scheduledDate DateTime?
+  milestone     Milestone?
+  status        MessageStatus @default(DRAFT)
+  deliveredAt   DateTime?
+  viewedAt      DateTime?
+  note          String?       @db.Text // private note for user
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relationships
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipient Recipient  @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  responses Response[]
+
+  @@index([userId])
+  @@index([recipientId])
+  @@index([status])
+  @@index([scheduledDate])
+  @@map("messages")
+}
+
+model Recipient {
+  id           String       @id @default(uuid())
+  userId       String
+  name         String
+  email        String
+  phone        String?
+  relationship Relationship
+  birthday     DateTime?
+  avatar       String?      // URL to avatar image
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // Relationships
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  responses Response[]
+
+  @@unique([userId, email]) // Prevent duplicate recipients for same user
+  @@index([userId])
+  @@map("recipients")
+}
+
+model Trustee {
+  id               String   @id @default(uuid())
+  userId           String   @unique // One trustee per user
+  name             String
+  email            String
+  relationship     String
+  verificationCode String   @unique @default(uuid()) // For confirming passing
+  notified         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([verificationCode])
+  @@map("trustees")
+}
+
+model Response {
+  id          String      @id @default(uuid())
+  messageId   String
+  recipientId String
+  content     String      @db.Text // file URL or text
+  type        MessageType
+  createdAt   DateTime    @default(now())
+
+  // Relationships
+  message   Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  recipient Recipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([recipientId])
+  @@map("responses")
+}
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  userId               String             @unique
+  stripeCustomerId     String             @unique
+  stripeSubscriptionId String             @unique
+  plan                 SubscriptionPlan
+  status               SubscriptionStatus @default(ACTIVE)
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([stripeCustomerId])
+  @@index([status])
+  @@map("subscriptions")
+}
