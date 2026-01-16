@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Heart, Menu, X } from "lucide-react";
+import Link from "next/link";
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -33,14 +34,14 @@ export default function Navbar() {
       <div className="max-w-6xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <a href="/" className="flex items-center gap-2 group">
+          <Link href="/" className="flex items-center gap-2 group">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30 group-hover:shadow-blue-500/50 transition-shadow">
               <Heart className="w-5 h-5 text-white fill-white" />
             </div>
             <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               HelloForever
             </span>
-          </a>
+          </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
@@ -61,12 +62,18 @@ export default function Navbar() {
 
           {/* Desktop Buttons */}
           <div className="hidden md:flex items-center gap-4">
-            <button className="px-5 py-2.5 font-semibold text-slate-600 hover:text-blue-600 transition-colors">
+            <Link
+              href="/login"
+              className="px-5 py-2.5 font-semibold text-slate-600 hover:text-blue-600 transition-colors"
+            >
               Sign In
-            </button>
-            <button className="px-6 py-2.5 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5 transition-all">
+            </Link>
+            <Link
+              href="/signup"
+              className="px-6 py-2.5 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5 transition-all"
+            >
               Start Free
-            </button>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -101,12 +108,20 @@ export default function Navbar() {
               </a>
             ))}
             <div className="pt-4 space-y-3 border-t border-slate-200">
-              <button className="w-full py-3 font-semibold text-slate-600 hover:text-blue-600 transition-colors">
+              <Link
+                href="/login"
+                className="block w-full py-3 text-center font-semibold text-slate-600 hover:text-blue-600 transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
                 Sign In
-              </button>
-              <button className="w-full py-3 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 transition-all">
+              </Link>
+              <Link
+                href="/signup"
+                className="block w-full py-3 text-center rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 transition-all"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
                 Start Free
-              </button>
+              </Link>
             </div>
           </div>
         </div>

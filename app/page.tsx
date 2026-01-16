@@ -14,6 +14,7 @@ import {
   Mail,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -52,14 +53,20 @@ export default function Home() {
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-              <button className="group px-8 py-4 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold text-lg flex items-center gap-2 shadow-xl shadow-orange-500/30 hover:shadow-2xl hover:shadow-orange-500/40 transition-all hover:-translate-y-1">
+              <Link
+                href="/signup"
+                className="group px-8 py-4 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold text-lg flex items-center gap-2 shadow-xl shadow-orange-500/30 hover:shadow-2xl hover:shadow-orange-500/40 transition-all hover:-translate-y-1"
+              >
                 Start Free
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </button>
-              <button className="group px-8 py-4 rounded-full border-2 border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all font-semibold text-lg flex items-center gap-2">
+              </Link>
+              <a
+                href="#how-it-works"
+                className="group px-8 py-4 rounded-full border-2 border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all font-semibold text-lg flex items-center gap-2"
+              >
                 <Play className="w-5 h-5 text-blue-600" />
                 Learn More
-              </button>
+              </a>
             </div>
 
             {/* Trust indicators */}
@@ -228,13 +235,19 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
-            <button className="group px-8 py-4 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold text-lg flex items-center gap-2 shadow-xl shadow-orange-500/30 hover:shadow-2xl hover:shadow-orange-500/40 transition-all hover:-translate-y-1">
+            <Link
+              href="/signup"
+              className="group px-8 py-4 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold text-lg flex items-center gap-2 shadow-xl shadow-orange-500/30 hover:shadow-2xl hover:shadow-orange-500/40 transition-all hover:-translate-y-1"
+            >
               Create Free Account
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
-            <button className="px-8 py-4 rounded-full border-2 border-slate-300 hover:border-blue-400 hover:bg-white transition-all font-semibold text-lg">
+            </Link>
+            <a
+              href="#pricing"
+              className="px-8 py-4 rounded-full border-2 border-slate-300 hover:border-blue-400 hover:bg-white transition-all font-semibold text-lg"
+            >
               View Full Pricing
-            </button>
+            </a>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-6 text-slate-500 text-sm">
@@ -258,10 +271,13 @@ export default function Home() {
             The words you share today become treasured gifts tomorrow. Don't wait to tell the people you love what they mean to you.
           </p>
 
-          <button className="group px-10 py-5 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white font-bold text-lg flex items-center gap-2 mx-auto shadow-2xl shadow-orange-500/30 hover:shadow-orange-500/50 transition-all hover:-translate-y-1">
+          <Link
+            href="/signup"
+            className="group px-10 py-5 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white font-bold text-lg flex items-center gap-2 mx-auto shadow-2xl shadow-orange-500/30 hover:shadow-orange-500/50 transition-all hover:-translate-y-1"
+          >
             Create Free Account
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </button>
+          </Link>
 
           <p className="text-slate-400 mt-8 text-sm">
             Join 10,000+ people preserving their most important messages
