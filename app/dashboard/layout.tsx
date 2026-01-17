@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import {
   Heart,
   LayoutDashboard,
@@ -15,9 +16,9 @@ import {
   ChevronDown,
   LogOut,
   Menu,
-  X,
   Sparkles,
   User,
+  Loader2,
 } from "lucide-react";
 
 const navItems = [
@@ -28,27 +29,49 @@ const navItems = [
   { href: "/dashboard/settings", icon: Settings, label: "Settings" },
 ];
 
-// Mock user data (replace with real auth later)
-const user = {
-  name: "Dwight Williams",
-  email: "dwight@example.com",
-  isPremium: false,
-  avatar: "DW",
-};
-
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { data: session, status } = useSession();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+
+  // Redirect to login if not authenticated
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    router.push("/login");
+    return null;
+  }
+
+  const user = session?.user;
+  const isPremium = user?.plan === "PREMIUM" || user?.plan === "PREMIUM_PLUS" || user?.plan === "FAMILY";
+  const userInitials = user?.name
+    ?.split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "U";
 
   // Get current page title based on pathname
   const getPageTitle = () => {
     const currentNav = navItems.find((item) => item.href === pathname);
     return currentNav?.label || "Dashboard";
+  };
+
+  const handleSignOut = async () => {
+    setIsProfileDropdownOpen(false);
+    await signOut({ callbackUrl: "/" });
   };
 
   return (
@@ -107,7 +130,7 @@ export default function DashboardLayout({
           </nav>
 
           {/* Upgrade Banner (for free users) */}
-          {!user.isPremium && (
+          {!isPremium && (
             <div className="p-4">
               <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100">
                 <div className="flex items-center gap-2 mb-2">
@@ -133,13 +156,13 @@ export default function DashboardLayout({
           <div className="p-4 border-t border-slate-100">
             <div className="flex items-center gap-3 px-2">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
-                {user.avatar}
+                {userInitials}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-slate-900 truncate">
-                  {user.name}
+                  {user?.name}
                 </p>
-                <p className="text-sm text-slate-500 truncate">{user.email}</p>
+                <p className="text-sm text-slate-500 truncate">{user?.email}</p>
               </div>
             </div>
           </div>
@@ -197,7 +220,7 @@ export default function DashboardLayout({
                   className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
                 >
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
-                    {user.avatar}
+                    {userInitials}
                   </div>
                   <ChevronDown
                     className={`w-4 h-4 text-slate-400 hidden sm:block transition-transform ${
@@ -216,9 +239,9 @@ export default function DashboardLayout({
                     <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-50">
                       <div className="px-4 py-3 border-b border-slate-100">
                         <p className="font-semibold text-slate-900">
-                          {user.name}
+                          {user?.name}
                         </p>
-                        <p className="text-sm text-slate-500">{user.email}</p>
+                        <p className="text-sm text-slate-500">{user?.email}</p>
                       </div>
                       <div className="py-2">
                         <Link
@@ -240,10 +263,7 @@ export default function DashboardLayout({
                       </div>
                       <div className="border-t border-slate-100 pt-2">
                         <button
-                          onClick={() => {
-                            setIsProfileDropdownOpen(false);
-                            // Add logout logic here
-                          }}
+                          onClick={handleSignOut}
                           className="flex items-center gap-3 w-full px-4 py-2 text-red-600 hover:bg-red-50 transition-colors"
                         >
                           <LogOut className="w-4 h-4" />

@@ -1,12 +1,110 @@
 "use client";
 
 import { useState } from "react";
-import { Heart, Eye, EyeOff, ArrowRight, Shield, Clock, Star } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
+import { Heart, Eye, EyeOff, ArrowRight, Shield, Clock, Star, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 export default function SignUp() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    terms: false,
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+    setError("");
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    // Validation
+    if (!formData.name.trim()) {
+      setError("Please enter your name");
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      setError("Please enter your email");
+      return;
+    }
+
+    if (formData.password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (!formData.terms) {
+      setError("Please agree to the Terms of Service and Privacy Policy");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Create account
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Something went wrong");
+        return;
+      }
+
+      // Auto sign in after successful signup
+      const signInResult = await signIn("credentials", {
+        email: formData.email,
+        password: formData.password,
+        redirect: false,
+      });
+
+      if (signInResult?.error) {
+        // Account created but sign in failed - redirect to login
+        router.push("/login");
+        return;
+      }
+
+      // Redirect to dashboard
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex">
@@ -33,23 +131,33 @@ export default function SignUp() {
             </p>
           </div>
 
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm">
+              {error}
+            </div>
+          )}
+
           {/* Form */}
-          <form className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {/* Full Name */}
             <div>
               <label
-                htmlFor="fullName"
+                htmlFor="name"
                 className="block text-sm font-medium text-slate-700 mb-2"
               >
                 Full Name
               </label>
               <input
                 type="text"
-                id="fullName"
-                name="fullName"
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                disabled={isLoading}
                 required
                 placeholder="Enter your full name"
-                className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-slate-400"
+                className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -65,9 +173,12 @@ export default function SignUp() {
                 type="email"
                 id="email"
                 name="email"
+                value={formData.email}
+                onChange={handleChange}
+                disabled={isLoading}
                 required
                 placeholder="you@example.com"
-                className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-slate-400"
+                className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -84,10 +195,13 @@ export default function SignUp() {
                   type={showPassword ? "text" : "password"}
                   id="password"
                   name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  disabled={isLoading}
                   required
                   minLength={8}
                   placeholder="Create a password (min. 8 characters)"
-                  className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-slate-400"
+                  className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <button
                   type="button"
@@ -117,10 +231,13 @@ export default function SignUp() {
                   type={showConfirmPassword ? "text" : "password"}
                   id="confirmPassword"
                   name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  disabled={isLoading}
                   required
                   minLength={8}
                   placeholder="Confirm your password"
-                  className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-slate-400"
+                  className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <button
                   type="button"
@@ -143,6 +260,9 @@ export default function SignUp() {
                 type="checkbox"
                 id="terms"
                 name="terms"
+                checked={formData.terms}
+                onChange={handleChange}
+                disabled={isLoading}
                 required
                 className="mt-1 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
               />
@@ -161,10 +281,20 @@ export default function SignUp() {
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full py-4 rounded-xl bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold text-lg flex items-center justify-center gap-2 shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5 transition-all duration-200 group"
+              disabled={isLoading}
+              className="w-full py-4 rounded-xl bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold text-lg flex items-center justify-center gap-2 shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5 transition-all duration-200 group disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             >
-              Create Account
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Creating account...
+                </>
+              ) : (
+                <>
+                  Create Account
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
             </button>
           </form>
 
@@ -172,7 +302,7 @@ export default function SignUp() {
           <p className="text-center mt-8 text-slate-600">
             Already have an account?{" "}
             <Link
-              href="/signin"
+              href="/login"
               className="text-blue-600 hover:text-blue-700 font-semibold transition-colors"
             >
               Sign in
@@ -211,7 +341,7 @@ export default function SignUp() {
               ))}
             </div>
             <p className="text-lg text-blue-50 mb-4 leading-relaxed">
-              "I recorded birthday messages for my grandchildren for the next 20 years. Knowing they'll hear my voice on their special days brings me such peace."
+              &quot;I recorded birthday messages for my grandchildren for the next 20 years. Knowing they&apos;ll hear my voice on their special days brings me such peace.&quot;
             </p>
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center font-bold text-white">

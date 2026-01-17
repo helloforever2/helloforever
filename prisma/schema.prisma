@@ -74,26 +74,71 @@ enum SubscriptionStatus {
 // ============== MODELS ==============
 
 model User {
-  id           String    @id @default(uuid())
-  email        String    @unique
-  name         String
-  password     String    // hashed
-  phone        String?
-  birthday     DateTime?
-  avatar       String?   // URL to avatar image
-  plan         Plan      @default(FREE)
-  storageUsed  Int       @default(0) // in MB
-  messageCount Int       @default(0)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String
+  password      String    // hashed
+  emailVerified DateTime? // NextAuth
+  image         String?   // NextAuth
+  phone         String?
+  birthday      DateTime?
+  avatar        String?   // URL to avatar image
+  plan          Plan      @default(FREE)
+  storageUsed   Int       @default(0) // in MB
+  messageCount  Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   // Relationships
   messages     Message[]
   recipients   Recipient[]
   trustee      Trustee?
   subscription Subscription?
+  accounts     Account[]
+  sessions     Session[]
 
   @@map("users")
+}
+
+// NextAuth Models
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
 }
 
 model Message {

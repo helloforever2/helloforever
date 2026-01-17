@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Video,
@@ -12,23 +13,22 @@ import {
   X,
   Play,
   Square,
-  Pause,
-  User,
   Calendar,
   Clock,
   Gift,
   Sparkles,
-  ChevronDown,
   Search,
   Plus,
   Edit,
   Trash2,
   AlertCircle,
+  Loader2,
+  CheckCircle,
 } from "lucide-react";
 
 // Types
-type MessageType = "video" | "audio" | "text" | null;
-type DeliveryType = "specific" | "passing" | "milestone" | "surprise" | null;
+type MessageType = "VIDEO" | "AUDIO" | "TEXT" | null;
+type DeliveryType = "SPECIFIC_DATE" | "UPON_PASSING" | "MILESTONE" | "SURPRISE" | null;
 
 interface Recipient {
   id: string;
@@ -50,13 +50,6 @@ interface FormData {
   milestone: string;
 }
 
-// Mock existing recipients
-const existingRecipients: Recipient[] = [
-  { id: "1", name: "Sarah Williams", relationship: "Child", email: "sarah@example.com", birthday: "2000-03-15" },
-  { id: "2", name: "Michael Chen", relationship: "Friend", email: "michael@example.com" },
-  { id: "3", name: "Emma Williams", relationship: "Child", email: "emma@example.com", birthday: "2005-05-28" },
-];
-
 // Progress Steps
 const steps = [
   { number: 1, title: "Type" },
@@ -67,6 +60,7 @@ const steps = [
 ];
 
 export default function CreateMessagePage() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     messageType: null,
@@ -80,6 +74,10 @@ export default function CreateMessagePage() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Recipients state
+  const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [isLoadingRecipients, setIsLoadingRecipients] = useState(true);
+
   // Video/Audio recording states
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -90,13 +88,39 @@ export default function CreateMessagePage() {
   // Recipient form states
   const [showNewRecipientForm, setShowNewRecipientForm] = useState(false);
   const [recipientSearch, setRecipientSearch] = useState("");
+  const [isAddingRecipient, setIsAddingRecipient] = useState(false);
   const [newRecipient, setNewRecipient] = useState({
     name: "",
-    relationship: "Child",
+    relationship: "CHILD",
     email: "",
     phone: "",
     birthday: "",
   });
+
+  // Save states
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  // Fetch recipients on mount
+  useEffect(() => {
+    fetchRecipients();
+  }, []);
+
+  const fetchRecipients = async () => {
+    try {
+      setIsLoadingRecipients(true);
+      const response = await fetch("/api/recipients");
+      const data = await response.json();
+      if (response.ok) {
+        setRecipients(data.recipients);
+      }
+    } catch (error) {
+      console.error("Failed to fetch recipients:", error);
+    } finally {
+      setIsLoadingRecipients(false);
+    }
+  };
 
   // Recording timer
   useEffect(() => {
@@ -108,6 +132,17 @@ export default function CreateMessagePage() {
     }
     return () => clearInterval(interval);
   }, [isRecording]);
+
+  // Auto-dismiss success toast
+  useEffect(() => {
+    if (showSuccessToast) {
+      const timer = setTimeout(() => {
+        setShowSuccessToast(false);
+        router.push("/dashboard/messages");
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccessToast, router]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -139,11 +174,11 @@ export default function CreateMessagePage() {
         if (!formData.title.trim()) {
           newErrors.title = "Please enter a title for your message";
         }
-        if (formData.messageType === "text" && !formData.content.trim()) {
+        if (formData.messageType === "TEXT" && !formData.content.trim()) {
           newErrors.content = "Please enter your message content";
         }
-        if ((formData.messageType === "video" || formData.messageType === "audio") && !hasRecording && !uploadedFile) {
-          newErrors.content = `Please ${activeTab === "record" ? "record" : "upload"} your ${formData.messageType}`;
+        if ((formData.messageType === "VIDEO" || formData.messageType === "AUDIO") && !hasRecording && !uploadedFile) {
+          newErrors.content = `Please ${activeTab === "record" ? "record" : "upload"} your ${formData.messageType?.toLowerCase()}`;
         }
         break;
       case 3:
@@ -155,10 +190,10 @@ export default function CreateMessagePage() {
         if (!formData.deliveryType) {
           newErrors.deliveryType = "Please select a delivery schedule";
         }
-        if (formData.deliveryType === "specific" && !formData.deliveryDate) {
+        if (formData.deliveryType === "SPECIFIC_DATE" && !formData.deliveryDate) {
           newErrors.deliveryDate = "Please select a delivery date";
         }
-        if (formData.deliveryType === "milestone" && !formData.milestone) {
+        if (formData.deliveryType === "MILESTONE" && !formData.milestone) {
           newErrors.milestone = "Please select a milestone event";
         }
         break;
@@ -178,36 +213,95 @@ export default function CreateMessagePage() {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
-  const handleSave = (asDraft: boolean = false) => {
-    const finalData = {
-      ...formData,
-      status: asDraft ? "draft" : "scheduled",
-      hasRecording,
-      uploadedFile,
-      recordingDuration: recordingTime,
-    };
-    console.log("Message saved:", finalData);
-    alert(asDraft ? "Message saved as draft!" : "Message scheduled successfully!");
+  const handleSave = async (asDraft: boolean = false) => {
+    if (!formData.recipient) return;
+
+    setIsSaving(true);
+    setErrors({});
+
+    try {
+      const response = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: formData.title,
+          type: formData.messageType,
+          content: formData.messageType === "TEXT" ? formData.content : "",
+          recipientId: formData.recipient.id,
+          deliveryType: formData.deliveryType,
+          scheduledDate: formData.deliveryType === "SPECIFIC_DATE" ? formData.deliveryDate : null,
+          milestone: formData.deliveryType === "MILESTONE" ? formData.milestone : null,
+          note: formData.note || null,
+          duration: hasRecording ? recordingTime : null,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          setShowUpgradeModal(true);
+          return;
+        }
+        if (response.status === 401) {
+          router.push("/login");
+          return;
+        }
+        throw new Error(data.error || "Failed to save message");
+      }
+
+      setShowSuccessToast(true);
+    } catch (error) {
+      setErrors({ save: error instanceof Error ? error.message : "Failed to save message" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const filteredRecipients = existingRecipients.filter(
+  const filteredRecipients = recipients.filter(
     (r) =>
       r.name.toLowerCase().includes(recipientSearch.toLowerCase()) ||
       r.email.toLowerCase().includes(recipientSearch.toLowerCase())
   );
 
-  const handleAddNewRecipient = () => {
+  const handleAddNewRecipient = async () => {
     if (!newRecipient.name.trim() || !newRecipient.email.trim()) {
       setErrors({ newRecipient: "Name and email are required" });
       return;
     }
-    const recipient: Recipient = {
-      id: Date.now().toString(),
-      ...newRecipient,
-    };
-    setFormData((prev) => ({ ...prev, recipient }));
-    setShowNewRecipientForm(false);
-    setNewRecipient({ name: "", relationship: "Child", email: "", phone: "", birthday: "" });
+
+    setIsAddingRecipient(true);
+    setErrors({});
+
+    try {
+      const response = await fetch("/api/recipients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newRecipient.name,
+          email: newRecipient.email,
+          phone: newRecipient.phone || null,
+          relationship: newRecipient.relationship,
+          birthday: newRecipient.birthday || null,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to add recipient");
+      }
+
+      const addedRecipient = data.data;
+      setRecipients((prev) => [addedRecipient, ...prev]);
+      setFormData((prev) => ({ ...prev, recipient: addedRecipient }));
+      setShowNewRecipientForm(false);
+      setNewRecipient({ name: "", relationship: "CHILD", email: "", phone: "", birthday: "" });
+    } catch (error) {
+      setErrors({ newRecipient: error instanceof Error ? error.message : "Failed to add recipient" });
+    } finally {
+      setIsAddingRecipient(false);
+    }
   };
 
   // Step 1: Choose Message Type
@@ -220,9 +314,9 @@ export default function CreateMessagePage() {
 
       <div className="grid md:grid-cols-3 gap-4">
         {[
-          { type: "video" as const, icon: Video, title: "Video", desc: "Record or upload a video message", color: "blue" },
-          { type: "audio" as const, icon: Mic, title: "Audio", desc: "Record or upload audio", color: "purple" },
-          { type: "text" as const, icon: FileText, title: "Text", desc: "Write a text message", color: "orange" },
+          { type: "VIDEO" as const, icon: Video, title: "Video", desc: "Record or upload a video message", color: "blue" },
+          { type: "AUDIO" as const, icon: Mic, title: "Audio", desc: "Record or upload audio", color: "purple" },
+          { type: "TEXT" as const, icon: FileText, title: "Text", desc: "Write a text message", color: "orange" },
         ].map((option) => (
           <button
             key={option.type}
@@ -275,7 +369,7 @@ export default function CreateMessagePage() {
     <div className="space-y-6">
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold text-slate-900 mb-2">
-          Create your {formData.messageType} message
+          Create your {formData.messageType?.toLowerCase()} message
         </h2>
         <p className="text-slate-600">Take your time - this message will mean the world to them</p>
       </div>
@@ -296,7 +390,7 @@ export default function CreateMessagePage() {
       </div>
 
       {/* Content Area - Changes based on type */}
-      {formData.messageType === "video" && (
+      {formData.messageType === "VIDEO" && (
         <div className="space-y-4">
           {/* Tabs */}
           <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
@@ -332,12 +426,10 @@ export default function CreateMessagePage() {
 
                     {isRecording && (
                       <>
-                        {/* Recording indicator */}
                         <div className="absolute top-4 left-4 flex items-center gap-2">
                           <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
                           <span className="text-red-500 font-medium">Recording</span>
                         </div>
-                        {/* Timer */}
                         <div className="absolute top-4 right-4 bg-black/50 px-4 py-2 rounded-lg">
                           <span className="text-white font-mono text-xl">{formatTime(recordingTime)}</span>
                         </div>
@@ -345,20 +437,17 @@ export default function CreateMessagePage() {
                     )}
                   </>
                 ) : (
-                  <>
-                    {/* Recorded preview */}
-                    <div className="w-full h-full bg-gradient-to-br from-blue-600/20 to-purple-600/20 flex flex-col items-center justify-center">
-                      <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mb-4">
-                        <Check className="w-10 h-10 text-green-500" />
-                      </div>
-                      <p className="text-green-400 text-lg font-medium">Recording saved!</p>
-                      <p className="text-slate-400 mt-2">Duration: {formatTime(recordingTime)}</p>
-                      <button className="mt-4 px-6 py-2 bg-white/10 rounded-lg text-white hover:bg-white/20 transition-colors flex items-center gap-2">
-                        <Play className="w-4 h-4" />
-                        Preview
-                      </button>
+                  <div className="w-full h-full bg-gradient-to-br from-blue-600/20 to-purple-600/20 flex flex-col items-center justify-center">
+                    <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mb-4">
+                      <Check className="w-10 h-10 text-green-500" />
                     </div>
-                  </>
+                    <p className="text-green-400 text-lg font-medium">Recording saved!</p>
+                    <p className="text-slate-400 mt-2">Duration: {formatTime(recordingTime)}</p>
+                    <button className="mt-4 px-6 py-2 bg-white/10 rounded-lg text-white hover:bg-white/20 transition-colors flex items-center gap-2">
+                      <Play className="w-4 h-4" />
+                      Preview
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -382,18 +471,16 @@ export default function CreateMessagePage() {
                   </button>
                 )}
                 {hasRecording && (
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => {
-                        setHasRecording(false);
-                        setRecordingTime(0);
-                      }}
-                      className="px-6 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-semibold flex items-center gap-2"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                      Re-record
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => {
+                      setHasRecording(false);
+                      setRecordingTime(0);
+                    }}
+                    className="px-6 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-semibold flex items-center gap-2"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    Re-record
+                  </button>
                 )}
               </div>
             </div>
@@ -432,7 +519,7 @@ export default function CreateMessagePage() {
         </div>
       )}
 
-      {formData.messageType === "audio" && (
+      {formData.messageType === "AUDIO" && (
         <div className="space-y-4">
           {/* Tabs */}
           <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
@@ -557,7 +644,7 @@ export default function CreateMessagePage() {
         </div>
       )}
 
-      {formData.messageType === "text" && (
+      {formData.messageType === "TEXT" && (
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -593,7 +680,7 @@ export default function CreateMessagePage() {
         />
       </div>
 
-      {errors.content && formData.messageType !== "text" && (
+      {errors.content && formData.messageType !== "TEXT" && (
         <p className="text-red-500 text-sm flex items-center gap-2">
           <AlertCircle className="w-4 h-4" />
           {errors.content}
@@ -610,7 +697,12 @@ export default function CreateMessagePage() {
         <p className="text-slate-600">Select an existing recipient or add someone new</p>
       </div>
 
-      {!showNewRecipientForm ? (
+      {isLoadingRecipients ? (
+        <div className="text-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-slate-600">Loading recipients...</p>
+        </div>
+      ) : !showNewRecipientForm ? (
         <>
           {/* Search */}
           <div className="relative">
@@ -640,7 +732,8 @@ export default function CreateMessagePage() {
                   {recipient.name
                     .split(" ")
                     .map((n) => n[0])
-                    .join("")}
+                    .join("")
+                    .slice(0, 2)}
                 </div>
                 <div className="flex-1">
                   <p className="font-semibold text-slate-900">{recipient.name}</p>
@@ -654,6 +747,14 @@ export default function CreateMessagePage() {
               </button>
             ))}
           </div>
+
+          {filteredRecipients.length === 0 && recipients.length > 0 && (
+            <p className="text-center text-slate-500 py-4">No recipients match your search</p>
+          )}
+
+          {recipients.length === 0 && (
+            <p className="text-center text-slate-500 py-4">You haven&apos;t added any recipients yet</p>
+          )}
 
           {/* Add New Recipient */}
           <button
@@ -696,12 +797,12 @@ export default function CreateMessagePage() {
                 onChange={(e) => setNewRecipient((prev) => ({ ...prev, relationship: e.target.value }))}
                 className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               >
-                <option>Child</option>
-                <option>Spouse</option>
-                <option>Parent</option>
-                <option>Sibling</option>
-                <option>Friend</option>
-                <option>Other</option>
+                <option value="CHILD">Child</option>
+                <option value="SPOUSE">Spouse</option>
+                <option value="PARENT">Parent</option>
+                <option value="SIBLING">Sibling</option>
+                <option value="FRIEND">Friend</option>
+                <option value="OTHER">Other</option>
               </select>
             </div>
             <div>
@@ -742,14 +843,17 @@ export default function CreateMessagePage() {
           <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={() => setShowNewRecipientForm(false)}
-              className="px-4 py-2 rounded-lg border border-slate-200 font-medium hover:bg-slate-100 transition-colors"
+              disabled={isAddingRecipient}
+              className="px-4 py-2 rounded-lg border border-slate-200 font-medium hover:bg-slate-100 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={handleAddNewRecipient}
-              className="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
+              disabled={isAddingRecipient}
+              className="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
             >
+              {isAddingRecipient && <Loader2 className="w-4 h-4 animate-spin" />}
               Add Recipient
             </button>
           </div>
@@ -776,9 +880,9 @@ export default function CreateMessagePage() {
       <div className="space-y-4">
         {/* Specific Date */}
         <button
-          onClick={() => setFormData((prev) => ({ ...prev, deliveryType: "specific" }))}
+          onClick={() => setFormData((prev) => ({ ...prev, deliveryType: "SPECIFIC_DATE" }))}
           className={`w-full p-5 rounded-xl border-2 transition-all text-left ${
-            formData.deliveryType === "specific"
+            formData.deliveryType === "SPECIFIC_DATE"
               ? "border-blue-500 bg-blue-50"
               : "border-slate-200 hover:border-slate-300"
           }`}
@@ -786,28 +890,29 @@ export default function CreateMessagePage() {
           <div className="flex items-start gap-4">
             <div
               className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                formData.deliveryType === "specific" ? "bg-blue-500" : "bg-blue-100"
+                formData.deliveryType === "SPECIFIC_DATE" ? "bg-blue-500" : "bg-blue-100"
               }`}
             >
               <Calendar
-                className={`w-6 h-6 ${formData.deliveryType === "specific" ? "text-white" : "text-blue-600"}`}
+                className={`w-6 h-6 ${formData.deliveryType === "SPECIFIC_DATE" ? "text-white" : "text-blue-600"}`}
               />
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-slate-900 mb-1">Specific Date</h3>
               <p className="text-sm text-slate-600">Deliver on a date you choose</p>
             </div>
-            {formData.deliveryType === "specific" && <Check className="w-6 h-6 text-blue-500" />}
+            {formData.deliveryType === "SPECIFIC_DATE" && <Check className="w-6 h-6 text-blue-500" />}
           </div>
         </button>
 
-        {formData.deliveryType === "specific" && (
+        {formData.deliveryType === "SPECIFIC_DATE" && (
           <div className="ml-16 p-4 bg-slate-50 rounded-xl">
             <label className="block text-sm font-medium text-slate-700 mb-2">Select delivery date</label>
             <input
               type="date"
               value={formData.deliveryDate}
               onChange={(e) => setFormData((prev) => ({ ...prev, deliveryDate: e.target.value }))}
+              min={new Date().toISOString().split("T")[0]}
               className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
             />
             {errors.deliveryDate && <p className="text-red-500 text-sm mt-1">{errors.deliveryDate}</p>}
@@ -816,9 +921,9 @@ export default function CreateMessagePage() {
 
         {/* Upon My Passing */}
         <button
-          onClick={() => setFormData((prev) => ({ ...prev, deliveryType: "passing" }))}
+          onClick={() => setFormData((prev) => ({ ...prev, deliveryType: "UPON_PASSING" }))}
           className={`w-full p-5 rounded-xl border-2 transition-all text-left ${
-            formData.deliveryType === "passing"
+            formData.deliveryType === "UPON_PASSING"
               ? "border-purple-500 bg-purple-50"
               : "border-slate-200 hover:border-slate-300"
           }`}
@@ -826,22 +931,22 @@ export default function CreateMessagePage() {
           <div className="flex items-start gap-4">
             <div
               className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                formData.deliveryType === "passing" ? "bg-purple-500" : "bg-purple-100"
+                formData.deliveryType === "UPON_PASSING" ? "bg-purple-500" : "bg-purple-100"
               }`}
             >
               <Clock
-                className={`w-6 h-6 ${formData.deliveryType === "passing" ? "text-white" : "text-purple-600"}`}
+                className={`w-6 h-6 ${formData.deliveryType === "UPON_PASSING" ? "text-white" : "text-purple-600"}`}
               />
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-slate-900 mb-1">Upon My Passing</h3>
               <p className="text-sm text-slate-600">Your trustee will release this message</p>
             </div>
-            {formData.deliveryType === "passing" && <Check className="w-6 h-6 text-purple-500" />}
+            {formData.deliveryType === "UPON_PASSING" && <Check className="w-6 h-6 text-purple-500" />}
           </div>
         </button>
 
-        {formData.deliveryType === "passing" && (
+        {formData.deliveryType === "UPON_PASSING" && (
           <div className="ml-16 p-4 bg-purple-50 rounded-xl border border-purple-100">
             <p className="text-sm text-purple-700">
               <strong>Note:</strong> You&apos;ll need to assign a trustee who can confirm your passing and release
@@ -850,11 +955,11 @@ export default function CreateMessagePage() {
           </div>
         )}
 
-        {/* Milestone Event - Premium */}
+        {/* Milestone Event */}
         <button
-          onClick={() => setFormData((prev) => ({ ...prev, deliveryType: "milestone" }))}
+          onClick={() => setFormData((prev) => ({ ...prev, deliveryType: "MILESTONE" }))}
           className={`w-full p-5 rounded-xl border-2 transition-all text-left ${
-            formData.deliveryType === "milestone"
+            formData.deliveryType === "MILESTONE"
               ? "border-orange-500 bg-orange-50"
               : "border-slate-200 hover:border-slate-300"
           }`}
@@ -862,11 +967,11 @@ export default function CreateMessagePage() {
           <div className="flex items-start gap-4">
             <div
               className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                formData.deliveryType === "milestone" ? "bg-orange-500" : "bg-orange-100"
+                formData.deliveryType === "MILESTONE" ? "bg-orange-500" : "bg-orange-100"
               }`}
             >
               <Gift
-                className={`w-6 h-6 ${formData.deliveryType === "milestone" ? "text-white" : "text-orange-600"}`}
+                className={`w-6 h-6 ${formData.deliveryType === "MILESTONE" ? "text-white" : "text-orange-600"}`}
               />
             </div>
             <div className="flex-1">
@@ -878,11 +983,11 @@ export default function CreateMessagePage() {
               </div>
               <p className="text-sm text-slate-600">Birthday, wedding, graduation, and more</p>
             </div>
-            {formData.deliveryType === "milestone" && <Check className="w-6 h-6 text-orange-500" />}
+            {formData.deliveryType === "MILESTONE" && <Check className="w-6 h-6 text-orange-500" />}
           </div>
         </button>
 
-        {formData.deliveryType === "milestone" && (
+        {formData.deliveryType === "MILESTONE" && (
           <div className="ml-16 p-4 bg-slate-50 rounded-xl">
             <label className="block text-sm font-medium text-slate-700 mb-2">Select milestone</label>
             <select
@@ -891,22 +996,22 @@ export default function CreateMessagePage() {
               className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
             >
               <option value="">Choose an event...</option>
-              <option value="birthday">Birthday</option>
-              <option value="wedding">Wedding Day</option>
-              <option value="graduation">Graduation</option>
-              <option value="anniversary">Anniversary</option>
-              <option value="first-child">Birth of First Child</option>
-              <option value="retirement">Retirement</option>
+              <option value="BIRTHDAY">Birthday</option>
+              <option value="WEDDING">Wedding Day</option>
+              <option value="GRADUATION">Graduation</option>
+              <option value="ANNIVERSARY">Anniversary</option>
+              <option value="FIRST_CHILD">Birth of First Child</option>
+              <option value="RETIREMENT">Retirement</option>
             </select>
             {errors.milestone && <p className="text-red-500 text-sm mt-1">{errors.milestone}</p>}
           </div>
         )}
 
-        {/* Surprise Me - Premium */}
+        {/* Surprise Me */}
         <button
-          onClick={() => setFormData((prev) => ({ ...prev, deliveryType: "surprise" }))}
+          onClick={() => setFormData((prev) => ({ ...prev, deliveryType: "SURPRISE" }))}
           className={`w-full p-5 rounded-xl border-2 transition-all text-left ${
-            formData.deliveryType === "surprise"
+            formData.deliveryType === "SURPRISE"
               ? "border-pink-500 bg-pink-50"
               : "border-slate-200 hover:border-slate-300"
           }`}
@@ -914,11 +1019,11 @@ export default function CreateMessagePage() {
           <div className="flex items-start gap-4">
             <div
               className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                formData.deliveryType === "surprise" ? "bg-pink-500" : "bg-pink-100"
+                formData.deliveryType === "SURPRISE" ? "bg-pink-500" : "bg-pink-100"
               }`}
             >
               <Sparkles
-                className={`w-6 h-6 ${formData.deliveryType === "surprise" ? "text-white" : "text-pink-600"}`}
+                className={`w-6 h-6 ${formData.deliveryType === "SURPRISE" ? "text-white" : "text-pink-600"}`}
               />
             </div>
             <div className="flex-1">
@@ -930,7 +1035,7 @@ export default function CreateMessagePage() {
               </div>
               <p className="text-sm text-slate-600">Random delivery within a time window</p>
             </div>
-            {formData.deliveryType === "surprise" && <Check className="w-6 h-6 text-pink-500" />}
+            {formData.deliveryType === "SURPRISE" && <Check className="w-6 h-6 text-pink-500" />}
           </div>
         </button>
       </div>
@@ -952,6 +1057,13 @@ export default function CreateMessagePage() {
         <p className="text-slate-600">Make sure everything looks perfect before saving</p>
       </div>
 
+      {errors.save && (
+        <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm flex items-center gap-2">
+          <AlertCircle className="w-5 h-5" />
+          {errors.save}
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         {/* Message Type & Title */}
         <div className="p-6 border-b border-slate-100">
@@ -959,16 +1071,16 @@ export default function CreateMessagePage() {
             <div className="flex items-center gap-4">
               <div
                 className={`w-14 h-14 rounded-xl flex items-center justify-center ${
-                  formData.messageType === "video"
+                  formData.messageType === "VIDEO"
                     ? "bg-blue-100"
-                    : formData.messageType === "audio"
+                    : formData.messageType === "AUDIO"
                     ? "bg-purple-100"
                     : "bg-orange-100"
                 }`}
               >
-                {formData.messageType === "video" && <Video className="w-7 h-7 text-blue-600" />}
-                {formData.messageType === "audio" && <Mic className="w-7 h-7 text-purple-600" />}
-                {formData.messageType === "text" && <FileText className="w-7 h-7 text-orange-600" />}
+                {formData.messageType === "VIDEO" && <Video className="w-7 h-7 text-blue-600" />}
+                {formData.messageType === "AUDIO" && <Mic className="w-7 h-7 text-purple-600" />}
+                {formData.messageType === "TEXT" && <FileText className="w-7 h-7 text-orange-600" />}
               </div>
               <div>
                 <p className="text-sm text-slate-500 uppercase tracking-wide font-medium">
@@ -987,25 +1099,25 @@ export default function CreateMessagePage() {
           </div>
 
           {/* Content Preview */}
-          {formData.messageType === "text" && (
+          {formData.messageType === "TEXT" && (
             <div className="mt-4 p-4 bg-slate-50 rounded-xl">
               <p className="text-slate-700 whitespace-pre-wrap line-clamp-4">{formData.content}</p>
             </div>
           )}
-          {(formData.messageType === "video" || formData.messageType === "audio") && hasRecording && (
+          {(formData.messageType === "VIDEO" || formData.messageType === "AUDIO") && hasRecording && (
             <div className="mt-4 p-4 bg-slate-50 rounded-xl flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
                 <Check className="w-5 h-5 text-green-600" />
               </div>
               <div>
                 <p className="font-medium text-slate-900">
-                  {formData.messageType === "video" ? "Video" : "Audio"} recorded
+                  {formData.messageType === "VIDEO" ? "Video" : "Audio"} recorded
                 </p>
                 <p className="text-sm text-slate-500">Duration: {formatTime(recordingTime)}</p>
               </div>
             </div>
           )}
-          {(formData.messageType === "video" || formData.messageType === "audio") && uploadedFile && (
+          {(formData.messageType === "VIDEO" || formData.messageType === "AUDIO") && uploadedFile && (
             <div className="mt-4 p-4 bg-slate-50 rounded-xl flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
                 <Upload className="w-5 h-5 text-blue-600" />
@@ -1026,7 +1138,8 @@ export default function CreateMessagePage() {
                 {formData.recipient?.name
                   .split(" ")
                   .map((n) => n[0])
-                  .join("")}
+                  .join("")
+                  .slice(0, 2)}
               </div>
               <div>
                 <p className="text-sm text-slate-500 uppercase tracking-wide font-medium">Recipient</p>
@@ -1051,27 +1164,27 @@ export default function CreateMessagePage() {
             <div className="flex items-center gap-4">
               <div
                 className={`w-14 h-14 rounded-xl flex items-center justify-center ${
-                  formData.deliveryType === "specific"
+                  formData.deliveryType === "SPECIFIC_DATE"
                     ? "bg-blue-100"
-                    : formData.deliveryType === "passing"
+                    : formData.deliveryType === "UPON_PASSING"
                     ? "bg-purple-100"
-                    : formData.deliveryType === "milestone"
+                    : formData.deliveryType === "MILESTONE"
                     ? "bg-orange-100"
                     : "bg-pink-100"
                 }`}
               >
-                {formData.deliveryType === "specific" && <Calendar className="w-7 h-7 text-blue-600" />}
-                {formData.deliveryType === "passing" && <Clock className="w-7 h-7 text-purple-600" />}
-                {formData.deliveryType === "milestone" && <Gift className="w-7 h-7 text-orange-600" />}
-                {formData.deliveryType === "surprise" && <Sparkles className="w-7 h-7 text-pink-600" />}
+                {formData.deliveryType === "SPECIFIC_DATE" && <Calendar className="w-7 h-7 text-blue-600" />}
+                {formData.deliveryType === "UPON_PASSING" && <Clock className="w-7 h-7 text-purple-600" />}
+                {formData.deliveryType === "MILESTONE" && <Gift className="w-7 h-7 text-orange-600" />}
+                {formData.deliveryType === "SURPRISE" && <Sparkles className="w-7 h-7 text-pink-600" />}
               </div>
               <div>
                 <p className="text-sm text-slate-500 uppercase tracking-wide font-medium">Delivery</p>
                 <h3 className="text-lg font-bold text-slate-900">
-                  {formData.deliveryType === "specific" && `On ${new Date(formData.deliveryDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`}
-                  {formData.deliveryType === "passing" && "Upon My Passing"}
-                  {formData.deliveryType === "milestone" && `On their ${formData.milestone}`}
-                  {formData.deliveryType === "surprise" && "Surprise Delivery"}
+                  {formData.deliveryType === "SPECIFIC_DATE" && formData.deliveryDate && `On ${new Date(formData.deliveryDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`}
+                  {formData.deliveryType === "UPON_PASSING" && "Upon My Passing"}
+                  {formData.deliveryType === "MILESTONE" && `On their ${formData.milestone?.toLowerCase().replace("_", " ")}`}
+                  {formData.deliveryType === "SURPRISE" && "Surprise Delivery"}
                 </h3>
               </div>
             </div>
@@ -1089,15 +1202,18 @@ export default function CreateMessagePage() {
       <div className="flex flex-col sm:flex-row gap-4 pt-4">
         <button
           onClick={() => handleSave(true)}
-          className="flex-1 px-6 py-4 rounded-xl border-2 border-slate-200 font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all"
+          disabled={isSaving}
+          className="flex-1 px-6 py-4 rounded-xl border-2 border-slate-200 font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Save as Draft
         </button>
         <button
           onClick={() => handleSave(false)}
-          className="flex-1 px-6 py-4 rounded-xl bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5 transition-all"
+          disabled={isSaving}
+          className="flex-1 px-6 py-4 rounded-xl bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
         >
-          Save Message
+          {isSaving && <Loader2 className="w-5 h-5 animate-spin" />}
+          {isSaving ? "Saving..." : "Save Message"}
         </button>
       </div>
     </div>
@@ -1105,6 +1221,54 @@ export default function CreateMessagePage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      {/* Success Toast */}
+      {showSuccessToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-4">
+          <div className="flex items-center gap-3 px-6 py-4 rounded-xl bg-green-500 text-white shadow-lg">
+            <CheckCircle className="w-5 h-5" />
+            <span className="font-medium">Message saved successfully!</span>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowUpgradeModal(false)} />
+          <div className="relative bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
+            <button
+              onClick={() => setShowUpgradeModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-lg hover:bg-slate-100"
+            >
+              <X className="w-5 h-5 text-slate-500" />
+            </button>
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-8 h-8 text-orange-500" />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900 mb-2">Upgrade to Create More</h3>
+              <p className="text-slate-600 mb-6">
+                You&apos;ve reached the free tier limit of 2 messages. Upgrade to Premium for unlimited messages and more features.
+              </p>
+              <div className="space-y-3">
+                <Link
+                  href="/dashboard/upgrade"
+                  className="block w-full py-3 rounded-xl bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold hover:shadow-lg transition-all"
+                >
+                  Upgrade to Premium
+                </Link>
+                <button
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="block w-full py-3 rounded-xl border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+                >
+                  Maybe Later
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-20">
         <div className="max-w-3xl mx-auto px-4 py-4">
@@ -1117,7 +1281,7 @@ export default function CreateMessagePage() {
               <span className="font-medium">Back</span>
             </Link>
             <h1 className="text-lg font-bold text-slate-900">Create Message</h1>
-            <div className="w-20" /> {/* Spacer for centering */}
+            <div className="w-20" />
           </div>
         </div>
       </div>
