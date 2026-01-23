@@ -213,7 +213,7 @@ export default function CreateMessagePage() {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
-  const handleSave = async (asDraft: boolean = false) => {
+  const handleSave = async (_asDraft: boolean = false) => {
     if (!formData.recipient) return;
 
     setIsSaving(true);

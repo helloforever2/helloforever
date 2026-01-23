@@ -48,7 +48,7 @@ export default function Home() {
 
             {/* Subheadline */}
             <p className="text-xl md:text-2xl text-slate-600 mb-10 leading-relaxed max-w-2xl mx-auto">
-              Leave video messages for loved ones. Deliver them at the perfect moment—even after you're gone.
+              Leave video messages for loved ones. Deliver them at the perfect moment—even after you&apos;re gone.
             </p>
 
             {/* CTA Buttons */}
@@ -268,7 +268,7 @@ export default function Home() {
             Start Your Legacy Today
           </h2>
           <p className="text-xl text-slate-300 mb-10 max-w-2xl mx-auto leading-relaxed">
-            The words you share today become treasured gifts tomorrow. Don't wait to tell the people you love what they mean to you.
+            The words you share today become treasured gifts tomorrow. Don&apos;t wait to tell the people you love what they mean to you.
           </p>
 
           <Link
