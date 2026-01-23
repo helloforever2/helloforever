@@ -13,7 +13,7 @@ const config: CapacitorConfig = {
     cleartext: true,
   } : {
     // Production: Point to live Vercel deployment
-    url: 'https://helloforever.vercel.app',
+    url: 'https://helloforever-main.vercel.app',
     androidScheme: 'https',
     iosScheme: 'https',
   },
