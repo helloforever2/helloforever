@@ -1,3 +1,6 @@
+"use client";
+
+import { useSession } from "next-auth/react";
 import {
   Mail,
   Users,
@@ -16,11 +19,6 @@ import {
   ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
-
-// Mock user data
-const user = {
-  name: "Dwight",
-};
 
 // Mock stats
 const stats = [
@@ -128,6 +126,8 @@ const getTypeIcon = (type: string) => {
 };
 
 export default function DashboardPage() {
+  const { data: session } = useSession();
+  const userName = session?.user?.name?.split(" ")[0] || "there";
   const hasMessages = recentMessages.length > 0;
 
   return (
@@ -135,7 +135,7 @@ export default function DashboardPage() {
       {/* Welcome Header */}
       <div>
         <h2 className="text-2xl font-bold text-slate-900">
-          Welcome back, {user.name}!
+          Welcome back, {userName}!
         </h2>
         <p className="text-slate-600 mt-1">
           {hasMessages

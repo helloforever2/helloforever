@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import {
   User,
   CreditCard,
@@ -18,25 +19,6 @@ import {
   X,
 } from "lucide-react";
 
-// Mock user data
-const mockUser = {
-  name: "Dwight Williams",
-  email: "dwight@example.com",
-  phone: "+1 (555) 123-4567",
-  birthday: "1980-06-15",
-  avatar: "DW",
-  plan: "free", // "free" | "premium" | "premium_plus"
-  storageUsed: 45, // percentage
-  messagesCreated: 4,
-  maxMessages: 3, // for free tier
-};
-
-const mockTrustee = {
-  name: "Jennifer Williams",
-  email: "jennifer@example.com",
-  relationship: "Spouse",
-};
-
 type TabType = "profile" | "account" | "trustee" | "notifications" | "danger";
 
 const tabs = [
@@ -48,9 +30,40 @@ const tabs = [
 ];
 
 export default function SettingsPage() {
+  const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState<TabType>("profile");
-  const [user, setUser] = useState(mockUser);
-  const [trustee, setTrustee] = useState<typeof mockTrustee | null>(mockTrustee);
+  const [user, setUser] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    birthday: "",
+    avatar: "",
+    plan: "free",
+    storageUsed: 0,
+    messagesCreated: 0,
+    maxMessages: 3,
+  });
+  const [trustee, setTrustee] = useState<{ name: string; email: string; relationship: string } | null>(null);
+
+  // Load user data from session
+  useEffect(() => {
+    if (session?.user) {
+      const initials = session.user.name
+        ?.split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2) || "U";
+
+      setUser((prev) => ({
+        ...prev,
+        name: session.user.name || "",
+        email: session.user.email || "",
+        avatar: initials,
+        plan: (session.user.plan || "free").toLowerCase(),
+      }));
+    }
+  }, [session]);
   const [notifications, setNotifications] = useState({
     messageDelivered: true,
     recipientViewed: true,
