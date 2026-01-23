@@ -213,7 +213,8 @@ export default function CreateMessagePage() {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
-  const handleSave = async (_asDraft: boolean = false) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleSave = async (asDraft: boolean = false) => {
     if (!formData.recipient) return;
 
     setIsSaving(true);
