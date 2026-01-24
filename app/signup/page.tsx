@@ -32,8 +32,12 @@ export default function SignUp() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Form submitted", formData);
     setError("");
     setIsLoading(true);
+
+    // Debug: Show that form is being processed
+    alert("Processing signup...");
 
     // Validation
     if (!formData.name.trim()) {
