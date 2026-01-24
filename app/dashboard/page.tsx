@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import {
   Mail,
@@ -17,75 +18,32 @@ import {
   Edit,
   Trash2,
   ArrowRight,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 
-// Mock stats
-const stats = [
-  {
-    label: "Messages Created",
-    value: 4,
-    icon: Mail,
-    color: "from-blue-500 to-blue-600",
-    bgColor: "bg-blue-50",
-    textColor: "text-blue-600",
-  },
-  {
-    label: "Recipients",
-    value: 6,
-    icon: Users,
-    color: "from-purple-500 to-purple-600",
-    bgColor: "bg-purple-50",
-    textColor: "text-purple-600",
-  },
-  {
-    label: "Scheduled Deliveries",
-    value: 3,
-    icon: Calendar,
-    color: "from-orange-400 to-orange-500",
-    bgColor: "bg-orange-50",
-    textColor: "text-orange-600",
-  },
-];
+interface Recipient {
+  id: string;
+  name: string;
+  email: string;
+  relationship: string;
+  avatar?: string;
+}
 
-// Mock messages
-const recentMessages = [
-  {
-    id: 1,
-    title: "Birthday Message for Sarah",
-    recipient: "Sarah Williams",
-    scheduledDate: "Mar 15, 2026",
-    status: "scheduled",
-    type: "video",
-  },
-  {
-    id: 2,
-    title: "Wedding Day Wishes",
-    recipient: "Michael Chen",
-    scheduledDate: "Jun 20, 2026",
-    status: "scheduled",
-    type: "video",
-  },
-  {
-    id: 3,
-    title: "Graduation Congratulations",
-    recipient: "Emma Williams",
-    scheduledDate: "May 28, 2025",
-    status: "delivered",
-    type: "audio",
-  },
-  {
-    id: 4,
-    title: "Christmas Message 2026",
-    recipient: "Family Group",
-    scheduledDate: "Dec 25, 2026",
-    status: "draft",
-    type: "text",
-  },
-];
+interface Message {
+  id: string;
+  title: string;
+  type: "VIDEO" | "AUDIO" | "TEXT";
+  content?: string;
+  scheduledDate?: string;
+  status: string;
+  deliveryType: string;
+  recipient: Recipient;
+  createdAt: string;
+}
 
 const getStatusBadge = (status: string) => {
-  switch (status) {
+  switch (status.toLowerCase()) {
     case "scheduled":
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
@@ -108,27 +66,114 @@ const getStatusBadge = (status: string) => {
         </span>
       );
     default:
-      return null;
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+          {status}
+        </span>
+      );
   }
 };
 
 const getTypeIcon = (type: string) => {
-  switch (type) {
-    case "video":
+  switch (type.toUpperCase()) {
+    case "VIDEO":
       return <Video className="w-4 h-4 text-blue-500" />;
-    case "audio":
+    case "AUDIO":
       return <Mic className="w-4 h-4 text-purple-500" />;
-    case "text":
+    case "TEXT":
       return <FileText className="w-4 h-4 text-slate-500" />;
     default:
       return null;
   }
 };
 
+const formatDate = (dateString?: string) => {
+  if (!dateString) return "Upon passing";
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const userName = session?.user?.name?.split(" ")[0] || "there";
-  const hasMessages = recentMessages.length > 0;
+
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [recipientCount, setRecipientCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [messagesRes, recipientsRes] = await Promise.all([
+          fetch("/api/messages"),
+          fetch("/api/recipients"),
+        ]);
+
+        if (messagesRes.ok) {
+          const messagesData = await messagesRes.json();
+          setMessages(messagesData.messages || []);
+        }
+
+        if (recipientsRes.ok) {
+          const recipientsData = await recipientsRes.json();
+          setRecipientCount(recipientsData.recipients?.length || 0);
+        }
+      } catch (error) {
+        console.error("Failed to fetch dashboard data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const hasMessages = messages.length > 0;
+  const scheduledCount = messages.filter(
+    (m) => m.status.toLowerCase() === "scheduled"
+  ).length;
+
+  const stats = [
+    {
+      label: "Messages Created",
+      value: messages.length,
+      icon: Mail,
+      color: "from-blue-500 to-blue-600",
+      bgColor: "bg-blue-50",
+      textColor: "text-blue-600",
+    },
+    {
+      label: "Recipients",
+      value: recipientCount,
+      icon: Users,
+      color: "from-purple-500 to-purple-600",
+      bgColor: "bg-purple-50",
+      textColor: "text-purple-600",
+    },
+    {
+      label: "Scheduled Deliveries",
+      value: scheduledCount,
+      icon: Calendar,
+      color: "from-orange-400 to-orange-500",
+      bgColor: "bg-orange-50",
+      textColor: "text-orange-600",
+    },
+  ];
+
+  // Show only the 4 most recent messages
+  const recentMessages = messages.slice(0, 4);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -139,7 +184,7 @@ export default function DashboardPage() {
         </h2>
         <p className="text-slate-600 mt-1">
           {hasMessages
-            ? `You have ${recentMessages.length} messages saved`
+            ? `You have ${messages.length} message${messages.length !== 1 ? "s" : ""} saved`
             : "You haven't created any messages yet"}
         </p>
       </div>
@@ -255,17 +300,20 @@ export default function DashboardPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-slate-600">
-                      {message.recipient}
+                      {message.recipient?.name || "Unknown"}
                     </td>
                     <td className="px-6 py-4 text-slate-600">
-                      {message.scheduledDate}
+                      {formatDate(message.scheduledDate)}
                     </td>
                     <td className="px-6 py-4">{getStatusBadge(message.status)}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
-                        <button className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors">
+                        <Link
+                          href={`/dashboard/messages/${message.id}`}
+                          className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors"
+                        >
                           <Edit className="w-4 h-4" />
-                        </button>
+                        </Link>
                         <button className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-red-600 transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -291,7 +339,7 @@ export default function DashboardPage() {
                         {message.title}
                       </p>
                       <p className="text-sm text-slate-500">
-                        To: {message.recipient}
+                        To: {message.recipient?.name || "Unknown"}
                       </p>
                     </div>
                   </div>
@@ -301,7 +349,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center justify-between mt-3 pl-13">
                   <p className="text-sm text-slate-500">
-                    {message.scheduledDate}
+                    {formatDate(message.scheduledDate)}
                   </p>
                   {getStatusBadge(message.status)}
                 </div>

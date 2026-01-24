@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -11,9 +11,10 @@ import {
   Edit,
   Trash2,
   X,
-  Upload,
   MessageSquare,
   Users,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 
 interface Recipient {
@@ -23,55 +24,26 @@ interface Recipient {
   email: string;
   phone?: string;
   birthday?: string;
-  messagesCount: number;
+  messageCount: number;
   avatar?: string;
 }
 
-// Mock recipients data
-const mockRecipients: Recipient[] = [
-  {
-    id: "1",
-    name: "Sarah Williams",
-    relationship: "Child",
-    email: "sarah@example.com",
-    phone: "+1 (555) 123-4567",
-    birthday: "2000-03-15",
-    messagesCount: 5,
-  },
-  {
-    id: "2",
-    name: "Michael Chen",
-    relationship: "Friend",
-    email: "michael.chen@example.com",
-    phone: "+1 (555) 234-5678",
-    messagesCount: 2,
-  },
-  {
-    id: "3",
-    name: "Emma Williams",
-    relationship: "Child",
-    email: "emma.w@example.com",
-    birthday: "2005-05-28",
-    messagesCount: 3,
-  },
-  {
-    id: "4",
-    name: "Robert Williams",
-    relationship: "Spouse",
-    email: "robert@example.com",
-    phone: "+1 (555) 345-6789",
-    birthday: "1975-11-20",
-    messagesCount: 8,
-  },
-];
-
 const relationshipColors: Record<string, string> = {
-  Child: "bg-blue-100 text-blue-700",
-  Spouse: "bg-pink-100 text-pink-700",
-  Parent: "bg-purple-100 text-purple-700",
-  Sibling: "bg-green-100 text-green-700",
-  Friend: "bg-orange-100 text-orange-700",
-  Other: "bg-slate-100 text-slate-700",
+  CHILD: "bg-blue-100 text-blue-700",
+  SPOUSE: "bg-pink-100 text-pink-700",
+  PARENT: "bg-purple-100 text-purple-700",
+  SIBLING: "bg-green-100 text-green-700",
+  FRIEND: "bg-orange-100 text-orange-700",
+  OTHER: "bg-slate-100 text-slate-700",
+};
+
+const relationshipLabels: Record<string, string> = {
+  CHILD: "Child",
+  SPOUSE: "Spouse",
+  PARENT: "Parent",
+  SIBLING: "Sibling",
+  FRIEND: "Friend",
+  OTHER: "Other",
 };
 
 const avatarColors = [
@@ -84,17 +56,42 @@ const avatarColors = [
 ];
 
 export default function RecipientsPage() {
-  const [recipients, setRecipients] = useState<Recipient[]>(mockRecipients);
+  const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecipient, setEditingRecipient] = useState<Recipient | null>(null);
   const [formData, setFormData] = useState({
     name: "",
-    relationship: "Child",
+    relationship: "CHILD",
     email: "",
     phone: "",
     birthday: "",
   });
+
+  useEffect(() => {
+    fetchRecipients();
+  }, []);
+
+  const fetchRecipients = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch("/api/recipients");
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch recipients");
+      }
+
+      setRecipients(data.recipients || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredRecipients = recipients.filter(
     (r) =>
@@ -108,12 +105,13 @@ export default function RecipientsPage() {
       .split(" ")
       .map((n) => n[0])
       .join("")
-      .toUpperCase();
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   const getAvatarColor = (id: string) => {
-    const index = parseInt(id) % avatarColors.length;
-    return avatarColors[index];
+    const hash = id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return avatarColors[hash % avatarColors.length];
   };
 
   const handleOpenModal = (recipient?: Recipient) => {
@@ -124,13 +122,13 @@ export default function RecipientsPage() {
         relationship: recipient.relationship,
         email: recipient.email,
         phone: recipient.phone || "",
-        birthday: recipient.birthday || "",
+        birthday: recipient.birthday ? recipient.birthday.split("T")[0] : "",
       });
     } else {
       setEditingRecipient(null);
       setFormData({
         name: "",
-        relationship: "Child",
+        relationship: "CHILD",
         email: "",
         phone: "",
         birthday: "",
@@ -144,45 +142,77 @@ export default function RecipientsPage() {
     setEditingRecipient(null);
     setFormData({
       name: "",
-      relationship: "Child",
+      relationship: "CHILD",
       email: "",
       phone: "",
       birthday: "",
     });
+    setError("");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name.trim() || !formData.email.trim()) {
-      alert("Name and email are required");
+      setError("Name and email are required");
       return;
     }
 
-    if (editingRecipient) {
-      // Update existing
-      setRecipients((prev) =>
-        prev.map((r) =>
-          r.id === editingRecipient.id
-            ? { ...r, ...formData }
-            : r
-        )
-      );
-    } else {
-      // Add new
-      const newRecipient: Recipient = {
-        id: Date.now().toString(),
-        ...formData,
-        messagesCount: 0,
-      };
-      setRecipients((prev) => [...prev, newRecipient]);
+    setIsSaving(true);
+    setError("");
+
+    try {
+      const url = "/api/recipients";
+      const method = editingRecipient ? "PUT" : "POST";
+      const body = editingRecipient
+        ? { id: editingRecipient.id, ...formData }
+        : formData;
+
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to save recipient");
+      }
+
+      await fetchRecipients();
+      handleCloseModal();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setIsSaving(false);
     }
-    handleCloseModal();
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this recipient?")) {
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this recipient?")) return;
+
+    try {
+      const response = await fetch(`/api/recipients?id=${id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to delete");
+      }
+
       setRecipients((prev) => prev.filter((r) => r.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete");
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   const hasRecipients = recipients.length > 0;
 
@@ -206,6 +236,13 @@ export default function RecipientsPage() {
           Add Recipient
         </button>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-2 text-red-700">
+          <AlertCircle className="w-5 h-5" />
+          {error}
+        </div>
+      )}
 
       {hasRecipients ? (
         <>
@@ -238,17 +275,19 @@ export default function RecipientsPage() {
                       {getInitials(recipient.name)}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-slate-900">{recipient.name}</h3>
+                      <h3 className="font-semibold text-slate-900">
+                        {recipient.name}
+                      </h3>
                       <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${
-                          relationshipColors[recipient.relationship] || relationshipColors.Other
+                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                          relationshipColors[recipient.relationship] || relationshipColors.OTHER
                         }`}
                       >
-                        {recipient.relationship}
+                        {relationshipLabels[recipient.relationship] || recipient.relationship}
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex gap-1">
                     <button
                       onClick={() => handleOpenModal(recipient)}
                       className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors"
@@ -267,58 +306,45 @@ export default function RecipientsPage() {
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2 text-slate-600">
                     <Mail className="w-4 h-4 text-slate-400" />
-                    <span className="truncate">{recipient.email}</span>
+                    {recipient.email}
                   </div>
                   {recipient.phone && (
                     <div className="flex items-center gap-2 text-slate-600">
                       <Phone className="w-4 h-4 text-slate-400" />
-                      <span>{recipient.phone}</span>
+                      {recipient.phone}
                     </div>
                   )}
                   {recipient.birthday && (
                     <div className="flex items-center gap-2 text-slate-600">
                       <Calendar className="w-4 h-4 text-slate-400" />
-                      <span>
-                        {new Date(recipient.birthday).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </span>
+                      {new Date(recipient.birthday).toLocaleDateString()}
                     </div>
                   )}
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 text-slate-500">
+                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 text-sm text-slate-500">
                   <MessageSquare className="w-4 h-4" />
-                  <span className="text-sm">
-                    {recipient.messagesCount} message{recipient.messagesCount !== 1 ? "s" : ""}
-                  </span>
+                  {recipient.messageCount || 0} message{recipient.messageCount !== 1 ? "s" : ""}
                 </div>
               </div>
             ))}
           </div>
-
-          {filteredRecipients.length === 0 && (
-            <div className="text-center py-12">
-              <Search className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-              <p className="text-slate-600">No recipients found matching &quot;{searchQuery}&quot;</p>
-            </div>
-          )}
         </>
       ) : (
-        /* Empty State */
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-slate-100 flex items-center justify-center">
-            <Users className="w-10 h-10 text-slate-400" />
+        <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-12 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-100 flex items-center justify-center">
+            <Users className="w-8 h-8 text-slate-400" />
           </div>
-          <h3 className="text-xl font-semibold text-slate-900 mb-2">No recipients yet</h3>
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">
+            No Recipients Yet
+          </h3>
           <p className="text-slate-600 mb-6 max-w-md mx-auto">
-            Add your first recipient to get started. These are the people who will receive
-            your heartfelt messages.
+            Add people who will receive your messages. You can add family members,
+            friends, or anyone special to you.
           </p>
           <button
             onClick={() => handleOpenModal()}
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold text-lg shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5 transition-all"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5 transition-all"
           >
             <Plus className="w-5 h-5" />
             Add Your First Recipient
@@ -326,57 +352,63 @@ export default function RecipientsPage() {
         </div>
       )}
 
-      {/* Add/Edit Modal */}
+      {/* Modal */}
       {isModalOpen && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/50 z-50"
-            onClick={handleCloseModal}
-          />
-          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 max-w-lg mx-auto bg-white rounded-2xl shadow-2xl z-50 max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-slate-900">
-                {editingRecipient ? "Edit Recipient" : "Add New Recipient"}
+                {editingRecipient ? "Edit Recipient" : "Add Recipient"}
               </h3>
               <button
                 onClick={handleCloseModal}
-                className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                className="p-2 rounded-lg hover:bg-slate-100 text-slate-400"
               >
-                <X className="w-5 h-5 text-slate-500" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 space-y-5">
-              {/* Photo Upload */}
-              <div className="flex justify-center">
+            {error && (
+              <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-600 text-sm">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Full Name *
+                </label>
                 <div className="relative">
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center">
-                    {formData.name ? (
-                      <span className="text-2xl font-bold text-slate-500">
-                        {getInitials(formData.name)}
-                      </span>
-                    ) : (
-                      <User className="w-10 h-10 text-slate-400" />
-                    )}
-                  </div>
-                  <button className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg hover:bg-blue-700 transition-colors">
-                    <Upload className="w-4 h-4" />
-                  </button>
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    placeholder="Enter full name"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
+                  />
                 </div>
               </div>
 
-              {/* Form Fields */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Full Name <span className="text-red-500">*</span>
+                  Email *
                 </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                  placeholder="Enter full name"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
-                />
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                    placeholder="Enter email address"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
+                  />
+                </div>
               </div>
 
               <div>
@@ -385,73 +417,80 @@ export default function RecipientsPage() {
                 </label>
                 <select
                   value={formData.relationship}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, relationship: e.target.value }))}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
+                  onChange={(e) =>
+                    setFormData({ ...formData, relationship: e.target.value })
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
                 >
-                  <option value="Child">Child</option>
-                  <option value="Spouse">Spouse</option>
-                  <option value="Parent">Parent</option>
-                  <option value="Sibling">Sibling</option>
-                  <option value="Friend">Friend</option>
-                  <option value="Other">Other</option>
+                  <option value="CHILD">Child</option>
+                  <option value="SPOUSE">Spouse</option>
+                  <option value="PARENT">Parent</option>
+                  <option value="SIBLING">Sibling</option>
+                  <option value="FRIEND">Friend</option>
+                  <option value="OTHER">Other</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Email <span className="text-red-500">*</span>
+                  Phone (optional)
                 </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
-                  placeholder="Enter email address"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
-                />
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phone: e.target.value })
+                    }
+                    placeholder="Enter phone number"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
+                  />
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Phone <span className="text-slate-400">(optional)</span>
+                  Birthday (optional)
                 </label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
-                  placeholder="+1 (555) 000-0000"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Birthday <span className="text-slate-400">(optional)</span>
-                </label>
-                <input
-                  type="date"
-                  value={formData.birthday}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, birthday: e.target.value }))}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
-                />
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type="date"
+                    value={formData.birthday}
+                    onChange={(e) =>
+                      setFormData({ ...formData, birthday: e.target.value })
+                    }
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="sticky bottom-0 bg-white px-6 py-4 border-t border-slate-100 flex gap-3">
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Recipient"
+                )}
+              </button>
               <button
                 onClick={handleCloseModal}
-                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                className="px-6 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition-colors"
               >
                 Cancel
               </button>
-              <button
-                onClick={handleSave}
-                className="flex-1 px-4 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
-              >
-                {editingRecipient ? "Save Changes" : "Save Recipient"}
-              </button>
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

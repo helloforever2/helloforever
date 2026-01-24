@@ -131,3 +131,82 @@ export async function GET() {
     );
   }
 }
+
+// PUT /api/recipients - Update a recipient
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { id, name, email, phone, relationship, birthday } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "Recipient ID is required" }, { status: 400 });
+    }
+
+    // Verify the recipient belongs to the user
+    const existingRecipient = await prisma.recipient.findFirst({
+      where: { id, userId: session.user.id },
+    });
+
+    if (!existingRecipient) {
+      return NextResponse.json({ error: "Recipient not found" }, { status: 404 });
+    }
+
+    const validRelationships = ["CHILD", "SPOUSE", "PARENT", "SIBLING", "FRIEND", "OTHER"];
+
+    const recipient = await prisma.recipient.update({
+      where: { id },
+      data: {
+        name: name?.trim() || existingRecipient.name,
+        email: email?.toLowerCase().trim() || existingRecipient.email,
+        phone: phone?.trim() || null,
+        relationship: validRelationships.includes(relationship) ? relationship : existingRecipient.relationship,
+        birthday: birthday ? new Date(birthday) : existingRecipient.birthday,
+      },
+    });
+
+    return NextResponse.json({ message: "Recipient updated", recipient });
+  } catch (error) {
+    console.error("Update recipient error:", error);
+    return NextResponse.json({ error: "Failed to update recipient" }, { status: 500 });
+  }
+}
+
+// DELETE /api/recipients - Delete a recipient
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "Recipient ID is required" }, { status: 400 });
+    }
+
+    // Verify the recipient belongs to the user
+    const existingRecipient = await prisma.recipient.findFirst({
+      where: { id, userId: session.user.id },
+    });
+
+    if (!existingRecipient) {
+      return NextResponse.json({ error: "Recipient not found" }, { status: 404 });
+    }
+
+    await prisma.recipient.delete({ where: { id } });
+
+    return NextResponse.json({ message: "Recipient deleted successfully" });
+  } catch (error) {
+    console.error("Delete recipient error:", error);
+    return NextResponse.json({ error: "Failed to delete recipient" }, { status: 500 });
+  }
+}
