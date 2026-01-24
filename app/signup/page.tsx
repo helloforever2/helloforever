@@ -33,34 +33,38 @@ export default function SignUp() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
     // Validation
     if (!formData.name.trim()) {
       setError("Please enter your name");
+      setIsLoading(false);
       return;
     }
 
     if (!formData.email.trim()) {
       setError("Please enter your email");
+      setIsLoading(false);
       return;
     }
 
     if (formData.password.length < 8) {
       setError("Password must be at least 8 characters");
+      setIsLoading(false);
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
+      setIsLoading(false);
       return;
     }
 
     if (!formData.terms) {
       setError("Please agree to the Terms of Service and Privacy Policy");
+      setIsLoading(false);
       return;
     }
-
-    setIsLoading(true);
 
     try {
       // Create account
@@ -79,7 +83,8 @@ export default function SignUp() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Something went wrong");
+        setError(data.error || "Something went wrong. Please try again.");
+        setIsLoading(false);
         return;
       }
 
@@ -92,16 +97,16 @@ export default function SignUp() {
 
       if (signInResult?.error) {
         // Account created but sign in failed - redirect to login
-        router.push("/login");
+        router.push("/login?message=Account created! Please sign in.");
         return;
       }
 
       // Redirect to dashboard
       router.push("/dashboard");
       router.refresh();
-    } catch {
-      setError("Something went wrong. Please try again.");
-    } finally {
+    } catch (err) {
+      console.error("Signup error:", err);
+      setError("Connection error. Please check your internet and try again.");
       setIsLoading(false);
     }
   };
