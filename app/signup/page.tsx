@@ -30,14 +30,10 @@ export default function SignUp() {
     setError("");
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     console.log("Form submitted", formData);
     setError("");
     setIsLoading(true);
-
-    // Debug: Show that form is being processed
-    alert("Processing signup...");
 
     // Validation
     if (!formData.name.trim()) {
@@ -148,7 +144,7 @@ export default function SignUp() {
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form className="space-y-5">
             {/* Full Name */}
             <div>
               <label
@@ -289,7 +285,8 @@ export default function SignUp() {
 
             {/* Submit Button */}
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={isLoading}
               className="w-full py-4 rounded-xl bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold text-lg flex items-center justify-center gap-2 shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5 transition-all duration-200 group disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             >
