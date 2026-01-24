@@ -393,12 +393,18 @@ export default function MessagesPage() {
                     <td className="px-6 py-4">{getStatusBadge(message.status)}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-1">
-                        <button className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors">
+                        <Link
+                          href={`/dashboard/messages/${message.id}`}
+                          className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors"
+                        >
                           <Eye className="w-4 h-4" />
-                        </button>
-                        <button className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors">
+                        </Link>
+                        <Link
+                          href={`/dashboard/messages/${message.id}`}
+                          className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors"
+                        >
                           <Edit className="w-4 h-4" />
-                        </button>
+                        </Link>
                         <button className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-red-600 transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -442,12 +448,18 @@ export default function MessagesPage() {
                     {formatDate(message.scheduledDate)}
                   </div>
                   <div className="flex items-center gap-1">
-                    <button className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors">
+                    <Link
+                      href={`/dashboard/messages/${message.id}`}
+                      className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors"
+                    >
                       <Eye className="w-4 h-4" />
-                    </button>
-                    <button className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors">
+                    </Link>
+                    <Link
+                      href={`/dashboard/messages/${message.id}`}
+                      className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors"
+                    >
                       <Edit className="w-4 h-4" />
-                    </button>
+                    </Link>
                   </div>
                 </div>
               </div>
