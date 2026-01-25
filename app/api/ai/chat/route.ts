@@ -4,7 +4,7 @@ import { generateChatResponse, getConversationByToken } from "@/lib/ai";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { accessToken, message } = body;
+    const { accessToken, message, includeVoice = true } = body;
 
     if (!accessToken) {
       return NextResponse.json(
@@ -30,12 +30,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate AI response
-    const response = await generateChatResponse(conversation.id, message.trim());
+    // Generate AI response with optional voice
+    const chatResponse = await generateChatResponse(
+      conversation.id,
+      message.trim(),
+      includeVoice
+    );
 
     return NextResponse.json({
       success: true,
-      response,
+      response: chatResponse.text,
+      audioBase64: chatResponse.audioBase64 || null,
     });
   } catch (error) {
     console.error("AI chat error:", error);
@@ -87,6 +92,7 @@ export async function GET(request: NextRequest) {
           id: m.id,
           role: m.role,
           content: m.content,
+          audioUrl: m.audioUrl,
           createdAt: m.createdAt,
         })),
       },

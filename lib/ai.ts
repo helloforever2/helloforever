@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import prisma from "./prisma";
+import { generateSpeech, selectDefaultVoice } from "./voice";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -48,10 +49,16 @@ ${messageExamples ? `CONTEXT FROM ${userName.toUpperCase()}'S MESSAGES TO HELP I
 Remember: You are preserving the essence of ${userName}'s love and connection with ${recipientName}. Every response should feel like it truly comes from someone who loves them deeply.`;
 }
 
+interface ChatResponse {
+  text: string;
+  audioBase64?: string;
+}
+
 export async function generateChatResponse(
   conversationId: string,
-  userMessage: string
-): Promise<string> {
+  userMessage: string,
+  includeVoice: boolean = true
+): Promise<ChatResponse> {
   // Get conversation with all context
   const conversation = await prisma.conversation.findUnique({
     where: { id: conversationId },
@@ -62,6 +69,8 @@ export async function generateChatResponse(
             select: {
               id: true,
               name: true,
+              voiceId: true,
+              voiceEnabled: true,
             },
           },
         },
@@ -76,6 +85,8 @@ export async function generateChatResponse(
   if (!conversation) {
     throw new Error("Conversation not found");
   }
+
+  const messageUser = conversation.recipient.user;
 
   // Get the user's messages for personality context
   const userMessages = await prisma.message.findMany({
@@ -95,7 +106,7 @@ export async function generateChatResponse(
   });
 
   const personalityContext: PersonalityContext = {
-    userName: conversation.recipient.user.name,
+    userName: messageUser.name,
     recipientName: conversation.recipient.name,
     relationship: conversation.recipient.relationship,
     messageHistory: userMessages,
@@ -135,6 +146,21 @@ export async function generateChatResponse(
     throw new Error("No response generated");
   }
 
+  // Generate voice response if enabled
+  let audioBase64: string | undefined;
+  if (includeVoice && messageUser.voiceEnabled) {
+    try {
+      // Use user's cloned voice or select appropriate default
+      const voiceId = messageUser.voiceId || selectDefaultVoice(
+        conversation.recipient.relationship
+      );
+      audioBase64 = await generateSpeech(responseContent, voiceId);
+    } catch (error) {
+      console.error("Voice generation failed:", error);
+      // Continue without audio if voice generation fails
+    }
+  }
+
   // Save both messages to database
   await prisma.chatMessage.createMany({
     data: [
@@ -147,6 +173,7 @@ export async function generateChatResponse(
         conversationId,
         role: "ASSISTANT",
         content: responseContent,
+        audioUrl: audioBase64 ? `data:audio/mpeg;base64,${audioBase64}` : null,
       },
     ],
   });
@@ -157,7 +184,10 @@ export async function generateChatResponse(
     data: { updatedAt: new Date() },
   });
 
-  return responseContent;
+  return {
+    text: responseContent,
+    audioBase64,
+  };
 }
 
 export async function createConversation(

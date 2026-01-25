@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Heart, Send, Loader2, MessageCircle, Sparkles } from "lucide-react";
+import { Heart, Send, Loader2, MessageCircle, Sparkles, Volume2, VolumeX } from "lucide-react";
 import Link from "next/link";
 
 interface Message {
   id: string;
   role: "USER" | "ASSISTANT";
   content: string;
+  audioUrl?: string | null;
   createdAt: string;
 }
 
@@ -27,10 +28,44 @@ export default function ChatPage({ params }: { params: { token: string } }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [isPlayingAudio, setIsPlayingAudio] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const playAudio = (audioBase64: string, messageId: string) => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+
+    const audio = new Audio(`data:audio/mpeg;base64,${audioBase64}`);
+    audioRef.current = audio;
+    setIsPlayingAudio(messageId);
+
+    audio.onended = () => {
+      setIsPlayingAudio(null);
+    };
+
+    audio.onerror = () => {
+      setIsPlayingAudio(null);
+      console.error("Audio playback failed");
+    };
+
+    audio.play().catch(() => {
+      setIsPlayingAudio(null);
+    });
+  };
+
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setIsPlayingAudio(null);
+    }
   };
 
   useEffect(() => {
@@ -85,6 +120,7 @@ export default function ChatPage({ params }: { params: { token: string } }) {
         body: JSON.stringify({
           accessToken: params.token,
           message: userMessage,
+          includeVoice: voiceEnabled,
         }),
       });
 
@@ -94,14 +130,22 @@ export default function ChatPage({ params }: { params: { token: string } }) {
         throw new Error(data.error || "Failed to send message");
       }
 
+      const messageId = `ai-${Date.now()}`;
+
       // Add AI response
       const aiMessage: Message = {
-        id: `ai-${Date.now()}`,
+        id: messageId,
         role: "ASSISTANT",
         content: data.response,
+        audioUrl: data.audioBase64 ? `data:audio/mpeg;base64,${data.audioBase64}` : null,
         createdAt: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, aiMessage]);
+
+      // Auto-play audio if available and voice is enabled
+      if (data.audioBase64 && voiceEnabled) {
+        playAudio(data.audioBase64, messageId);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send message");
       // Remove optimistic message on error
@@ -158,6 +202,24 @@ export default function ChatPage({ params }: { params: { token: string } }) {
             </Link>
 
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setVoiceEnabled(!voiceEnabled);
+                  if (isPlayingAudio) stopAudio();
+                }}
+                className={`p-2 rounded-lg transition-colors ${
+                  voiceEnabled
+                    ? "bg-purple-100 text-purple-600"
+                    : "bg-slate-100 text-slate-400"
+                }`}
+                title={voiceEnabled ? "Voice enabled" : "Voice disabled"}
+              >
+                {voiceEnabled ? (
+                  <Volume2 className="w-5 h-5" />
+                ) : (
+                  <VolumeX className="w-5 h-5" />
+                )}
+              </button>
               <div className="text-right">
                 <p className="font-semibold text-slate-900">{conversation?.userName}</p>
                 <p className="text-sm text-slate-500">AI Conversation</p>
@@ -210,15 +272,41 @@ export default function ChatPage({ params }: { params: { token: string } }) {
                   }`}
                 >
                   {message.role === "ASSISTANT" && (
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">
-                          {conversation?.userName?.charAt(0)}
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                          <span className="text-white text-xs font-bold">
+                            {conversation?.userName?.charAt(0)}
+                          </span>
+                        </div>
+                        <span className="text-xs font-medium text-slate-500">
+                          {conversation?.userName}
                         </span>
                       </div>
-                      <span className="text-xs font-medium text-slate-500">
-                        {conversation?.userName}
-                      </span>
+                      {message.audioUrl && (
+                        <button
+                          onClick={() => {
+                            if (isPlayingAudio === message.id) {
+                              stopAudio();
+                            } else {
+                              const audioData = message.audioUrl?.replace("data:audio/mpeg;base64,", "");
+                              if (audioData) playAudio(audioData, message.id);
+                            }
+                          }}
+                          className={`p-1.5 rounded-full transition-colors ${
+                            isPlayingAudio === message.id
+                              ? "bg-purple-500 text-white"
+                              : "bg-purple-100 text-purple-600 hover:bg-purple-200"
+                          }`}
+                          title={isPlayingAudio === message.id ? "Stop" : "Play voice"}
+                        >
+                          {isPlayingAudio === message.id ? (
+                            <VolumeX className="w-3 h-3" />
+                          ) : (
+                            <Volume2 className="w-3 h-3" />
+                          )}
+                        </button>
+                      )}
                     </div>
                   )}
                   <p className={`whitespace-pre-wrap ${message.role === "ASSISTANT" ? "text-slate-700" : ""}`}>

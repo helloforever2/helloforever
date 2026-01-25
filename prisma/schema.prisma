@@ -22,6 +22,8 @@ model User {
   updatedAt     DateTime      @updatedAt
   emailVerified DateTime?
   image         String?
+  voiceId       String?       // ElevenLabs cloned voice ID
+  voiceEnabled  Boolean       @default(false)
   accounts      Account[]
   messages      Message[]
   recipients    Recipient[]
@@ -141,6 +143,7 @@ model ChatMessage {
   conversationId String
   role           ChatRole
   content        String
+  audioUrl       String?      // ElevenLabs generated audio URL
   createdAt      DateTime     @default(now())
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
