@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { Heart, Play, Volume2, FileText, Calendar, Clock } from "lucide-react";
 import Link from "next/link";
+import StartChatButton from "@/components/StartChatButton";
 
 interface ViewMessagePageProps {
   params: { id: string };
@@ -165,6 +166,11 @@ export default async function ViewMessagePage({ params }: ViewMessagePageProps) 
                 <p className="text-amber-900 italic">&quot;{message.note}&quot;</p>
               </div>
             )}
+
+            {/* AI Conversation Button */}
+            <div className="mb-8">
+              <StartChatButton messageId={message.id} userName={message.user.name} />
+            </div>
 
             {/* Footer Message */}
             <div className="text-center pt-8 border-t border-slate-100">
