@@ -88,7 +88,7 @@ export default function About() {
             </h1>
 
             <p className="text-xl md:text-2xl text-slate-600 leading-relaxed max-w-2xl mx-auto">
-              We believe that love shouldn't be limited by time. HelloForever helps you create messages that will touch hearts for generations to come.
+              We believe that love shouldn&apos;t be limited by time. HelloForever helps you create messages that will touch hearts for generations to come.
             </p>
           </div>
         </div>
@@ -100,7 +100,7 @@ export default function About() {
           <Target className="w-16 h-16 mx-auto mb-8 text-orange-400" />
 
           <h2 className="text-3xl md:text-4xl font-bold mb-6 leading-relaxed">
-            "Our mission is to ensure that no important words go unspoken, and no loving message goes undelivered."
+            &quot;Our mission is to ensure that no important words go unspoken, and no loving message goes undelivered.&quot;
           </h2>
 
           <p className="text-xl text-slate-300">
@@ -162,7 +162,7 @@ export default function About() {
               The HelloForever Story
             </h2>
             <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-              How we're building the future of family connection
+              How we&apos;re building the future of family connection
             </p>
           </div>
 
@@ -200,7 +200,7 @@ export default function About() {
                 </span>
               </h2>
               <p className="text-xl text-slate-600 mb-8 leading-relaxed">
-                We understand the weight of responsibility that comes with preserving your most precious messages. That's why we've built HelloForever with the highest standards of security, reliability, and care.
+                We understand the weight of responsibility that comes with preserving your most precious messages. That&apos;s why we&apos;ve built HelloForever with the highest standards of security, reliability, and care.
               </p>
 
               <div className="space-y-4">

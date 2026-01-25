@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -83,7 +83,19 @@ export default function CreateMessagePage() {
   const [recordingTime, setRecordingTime] = useState(0);
   const [hasRecording, setHasRecording] = useState(false);
   const [activeTab, setActiveTab] = useState<"record" | "upload">("record");
-  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isStreamReady, setIsStreamReady] = useState(false);
+
+  // Refs for media recording
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Recipient form states
   const [showNewRecipientForm, setShowNewRecipientForm] = useState(false);
@@ -150,15 +162,149 @@ export default function CreateMessagePage() {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleStartRecording = () => {
-    setIsRecording(true);
-    setRecordingTime(0);
-    setHasRecording(false);
+  // Start camera/microphone stream
+  const startStream = useCallback(async () => {
+    try {
+      setCameraError(null);
+      const isVideo = formData.messageType === "VIDEO";
+
+      const constraints = isVideo
+        ? { video: { facingMode: "user" }, audio: true }
+        : { audio: true };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+
+      if (isVideo && videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+
+      setIsStreamReady(true);
+    } catch (err) {
+      console.error("Error accessing media devices:", err);
+      if (err instanceof Error) {
+        if (err.name === "NotAllowedError") {
+          setCameraError("Camera/microphone access denied. Please allow access in your browser settings.");
+        } else if (err.name === "NotFoundError") {
+          setCameraError("No camera or microphone found on your device.");
+        } else {
+          setCameraError("Could not access camera/microphone. Please try again.");
+        }
+      }
+    }
+  }, [formData.messageType]);
+
+  // Stop camera/microphone stream
+  const stopStream = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsStreamReady(false);
+  }, []);
+
+  // Clean up stream when component unmounts or message type changes
+  useEffect(() => {
+    return () => {
+      stopStream();
+      if (recordedUrl) {
+        URL.revokeObjectURL(recordedUrl);
+      }
+    };
+  }, [stopStream, recordedUrl]);
+
+  const handleStartRecording = async () => {
+    if (!streamRef.current) {
+      await startStream();
+      // Wait a moment for stream to be ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    if (!streamRef.current) {
+      setCameraError("Could not start recording. Please try again.");
+      return;
+    }
+
+    chunksRef.current = [];
+
+    const mimeType = formData.messageType === "VIDEO"
+      ? "video/webm;codecs=vp9,opus"
+      : "audio/webm;codecs=opus";
+
+    try {
+      const mediaRecorder = new MediaRecorder(streamRef.current, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+        setRecordedBlob(blob);
+        const url = URL.createObjectURL(blob);
+        setRecordedUrl(url);
+        setHasRecording(true);
+        stopStream();
+      };
+
+      mediaRecorder.start(1000); // Collect data every second
+      setIsRecording(true);
+      setRecordingTime(0);
+      setHasRecording(false);
+    } catch (err) {
+      console.error("Error starting recording:", err);
+      setCameraError("Could not start recording. Your browser may not support this feature.");
+    }
   };
 
   const handleStopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
     setIsRecording(false);
-    setHasRecording(true);
+  };
+
+  const handleDiscardRecording = () => {
+    if (recordedUrl) {
+      URL.revokeObjectURL(recordedUrl);
+    }
+    setRecordedBlob(null);
+    setRecordedUrl(null);
+    setHasRecording(false);
+    setRecordingTime(0);
+    chunksRef.current = [];
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const isVideo = formData.messageType === "VIDEO";
+      const validTypes = isVideo
+        ? ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"]
+        : ["audio/mpeg", "audio/wav", "audio/webm", "audio/mp4", "audio/x-m4a"];
+
+      if (!validTypes.includes(file.type)) {
+        setErrors({ content: `Please select a valid ${isVideo ? "video" : "audio"} file` });
+        return;
+      }
+
+      // Validate file size (500MB max)
+      if (file.size > 500 * 1024 * 1024) {
+        setErrors({ content: "File size must be less than 500MB" });
+        return;
+      }
+
+      setUploadedFile(file);
+      setErrors({});
+    }
   };
 
   const validateStep = (step: number): boolean => {
@@ -415,16 +561,35 @@ export default function CreateMessagePage() {
 
           {activeTab === "record" ? (
             <div className="bg-slate-900 rounded-2xl overflow-hidden">
+              {/* Camera Error */}
+              {cameraError && (
+                <div className="p-4 bg-red-900/50 border-b border-red-800">
+                  <p className="text-red-300 text-sm flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    {cameraError}
+                  </p>
+                </div>
+              )}
+
               {/* Camera Preview */}
               <div className="aspect-video bg-slate-800 flex flex-col items-center justify-center relative">
-                {!hasRecording ? (
+                {hasRecording && recordedUrl ? (
+                  /* Playback recorded video */
+                  <video
+                    src={recordedUrl}
+                    controls
+                    className="w-full h-full object-contain"
+                  />
+                ) : isRecording || isStreamReady ? (
+                  /* Live camera preview */
                   <>
-                    <div className="w-24 h-24 rounded-full bg-slate-700 flex items-center justify-center mb-4">
-                      <Video className="w-12 h-12 text-slate-500" />
-                    </div>
-                    <p className="text-slate-400 text-lg">Camera will appear here</p>
-                    <p className="text-slate-500 text-sm mt-1">Click record to start</p>
-
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      muted
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
                     {isRecording && (
                       <>
                         <div className="absolute top-4 left-4 flex items-center gap-2">
@@ -438,17 +603,14 @@ export default function CreateMessagePage() {
                     )}
                   </>
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-blue-600/20 to-purple-600/20 flex flex-col items-center justify-center">
-                    <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mb-4">
-                      <Check className="w-10 h-10 text-green-500" />
+                  /* Initial state - no camera yet */
+                  <>
+                    <div className="w-24 h-24 rounded-full bg-slate-700 flex items-center justify-center mb-4">
+                      <Video className="w-12 h-12 text-slate-500" />
                     </div>
-                    <p className="text-green-400 text-lg font-medium">Recording saved!</p>
-                    <p className="text-slate-400 mt-2">Duration: {formatTime(recordingTime)}</p>
-                    <button className="mt-4 px-6 py-2 bg-white/10 rounded-lg text-white hover:bg-white/20 transition-colors flex items-center gap-2">
-                      <Play className="w-4 h-4" />
-                      Preview
-                    </button>
-                  </div>
+                    <p className="text-slate-400 text-lg">Click the button below to start recording</p>
+                    <p className="text-slate-500 text-sm mt-1">Your camera will activate when you click record</p>
+                  </>
                 )}
               </div>
 
@@ -473,10 +635,7 @@ export default function CreateMessagePage() {
                 )}
                 {hasRecording && (
                   <button
-                    onClick={() => {
-                      setHasRecording(false);
-                      setRecordingTime(0);
-                    }}
+                    onClick={handleDiscardRecording}
                     className="px-6 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-semibold flex items-center gap-2"
                   >
                     <Trash2 className="w-5 h-5" />
@@ -486,29 +645,50 @@ export default function CreateMessagePage() {
               </div>
             </div>
           ) : (
-            <div className="border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center hover:border-blue-400 hover:bg-blue-50/50 transition-all cursor-pointer">
+            <div
+              className="border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center hover:border-blue-400 hover:bg-blue-50/50 transition-all cursor-pointer"
+              onClick={() => !uploadedFile && fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="video/*"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              {errors.content && (
+                <p className="text-red-500 text-sm mb-4">{errors.content}</p>
+              )}
               {!uploadedFile ? (
                 <>
                   <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                   <p className="text-lg font-medium text-slate-700 mb-2">Drag & drop your video here</p>
                   <p className="text-slate-500 mb-4">or</p>
                   <button
-                    onClick={() => setUploadedFile("my-video.mp4")}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
                     className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors"
                   >
                     Browse Files
                   </button>
-                  <p className="text-sm text-slate-400 mt-4">Max 500MB for free tier. Upgrade for more.</p>
+                  <p className="text-sm text-slate-400 mt-4">Supports MP4, WebM, MOV. Max 500MB.</p>
                 </>
               ) : (
                 <div className="space-y-4">
                   <div className="w-16 h-16 rounded-xl bg-blue-100 flex items-center justify-center mx-auto">
                     <Video className="w-8 h-8 text-blue-600" />
                   </div>
-                  <p className="font-medium text-slate-900">{uploadedFile}</p>
-                  <p className="text-sm text-slate-500">24.5 MB</p>
+                  <p className="font-medium text-slate-900">{uploadedFile.name}</p>
+                  <p className="text-sm text-slate-500">{(uploadedFile.size / 1024 / 1024).toFixed(1)} MB</p>
                   <button
-                    onClick={() => setUploadedFile(null)}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setUploadedFile(null);
+                    }}
                     className="text-red-600 hover:text-red-700 font-medium"
                   >
                     Remove
@@ -611,14 +791,28 @@ export default function CreateMessagePage() {
               </div>
             </div>
           ) : (
-            <div className="border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center hover:border-purple-400 hover:bg-purple-50/50 transition-all cursor-pointer">
+            <div
+              className="border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center hover:border-purple-400 hover:bg-purple-50/50 transition-all cursor-pointer"
+              onClick={() => !uploadedFile && fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="audio/*"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
               {!uploadedFile ? (
                 <>
                   <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                   <p className="text-lg font-medium text-slate-700 mb-2">Drag & drop your audio here</p>
                   <p className="text-slate-500 mb-4">or</p>
                   <button
-                    onClick={() => setUploadedFile("my-audio.mp3")}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
                     className="px-6 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 transition-colors"
                   >
                     Browse Files
@@ -630,10 +824,14 @@ export default function CreateMessagePage() {
                   <div className="w-16 h-16 rounded-xl bg-purple-100 flex items-center justify-center mx-auto">
                     <Mic className="w-8 h-8 text-purple-600" />
                   </div>
-                  <p className="font-medium text-slate-900">{uploadedFile}</p>
-                  <p className="text-sm text-slate-500">3.2 MB</p>
+                  <p className="font-medium text-slate-900">{uploadedFile.name}</p>
+                  <p className="text-sm text-slate-500">{(uploadedFile.size / 1024 / 1024).toFixed(1)} MB</p>
                   <button
-                    onClick={() => setUploadedFile(null)}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setUploadedFile(null);
+                    }}
                     className="text-red-600 hover:text-red-700 font-medium"
                   >
                     Remove
@@ -1125,7 +1323,7 @@ export default function CreateMessagePage() {
               </div>
               <div>
                 <p className="font-medium text-slate-900">File uploaded</p>
-                <p className="text-sm text-slate-500">{uploadedFile}</p>
+                <p className="text-sm text-slate-500">{uploadedFile.name}</p>
               </div>
             </div>
           )}

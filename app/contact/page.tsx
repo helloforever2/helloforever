@@ -105,14 +105,14 @@ export default function Contact() {
           </div>
 
           <h1 className="text-5xl md:text-6xl font-bold mb-6 tracking-tight">
-            We'd Love to{" "}
+            We&apos;d Love to{" "}
             <span className="bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 bg-clip-text text-transparent">
               Hear From You
             </span>
           </h1>
 
           <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-            Have questions about HelloForever? Want to share feedback? We're here to help and always eager to connect.
+            Have questions about HelloForever? Want to share feedback? We&apos;re here to help and always eager to connect.
           </p>
         </div>
       </section>
@@ -145,7 +145,7 @@ export default function Contact() {
             {/* Contact Form */}
             <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
               <h2 className="text-2xl font-bold mb-2">Send Us a Message</h2>
-              <p className="text-slate-600 mb-8">Fill out the form below and we'll get back to you as soon as possible.</p>
+              <p className="text-slate-600 mb-8">Fill out the form below and we&apos;ll get back to you as soon as possible.</p>
 
               {isSubmitted ? (
                 <div className="text-center py-12">
@@ -153,7 +153,7 @@ export default function Contact() {
                     <CheckCircle className="w-8 h-8 text-green-600" />
                   </div>
                   <h3 className="text-xl font-bold mb-2">Message Sent!</h3>
-                  <p className="text-slate-600 mb-6">Thank you for reaching out. We'll get back to you within 24 hours.</p>
+                  <p className="text-slate-600 mb-6">Thank you for reaching out. We&apos;ll get back to you within 24 hours.</p>
                   <button
                     onClick={() => setIsSubmitted(false)}
                     className="text-blue-600 font-medium hover:text-blue-700"
