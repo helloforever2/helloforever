@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Mic, Upload, Trash2, Volume2, Loader2, CheckCircle, AlertCircle, MicOff } from "lucide-react";
+import { Mic, Upload, Trash2, Volume2, Loader2, CheckCircle, AlertCircle, MicOff, Play, Square } from "lucide-react";
+
+interface AudioFile {
+  file: File;
+  url: string;
+}
 
 export default function VoicePreservationPage() {
-  const [audioFiles, setAudioFiles] = useState<File[]>([]);
+  const [audioFiles, setAudioFiles] = useState<AudioFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<{
@@ -15,9 +20,11 @@ export default function VoicePreservationPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isStartingRecording, setIsStartingRecording] = useState(false);
+  const [playingIndex, setPlayingIndex] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
   // Fetch voice status on mount
@@ -46,12 +53,68 @@ export default function VoicePreservationPage() {
       setError("Some files were skipped. Only audio files under 25MB are accepted.");
     }
 
-    setAudioFiles((prev) => [...prev, ...validFiles]);
+    const newAudioFiles: AudioFile[] = validFiles.map((file) => ({
+      file,
+      url: URL.createObjectURL(file),
+    }));
+
+    setAudioFiles((prev) => [...prev, ...newAudioFiles]);
   };
 
   const removeFile = (index: number) => {
+    // Stop playing if this file is playing
+    if (playingIndex === index) {
+      stopPlayback();
+    }
+    // Revoke URL to free memory
+    URL.revokeObjectURL(audioFiles[index].url);
     setAudioFiles((prev) => prev.filter((_, i) => i !== index));
   };
+
+  const playAudio = (index: number) => {
+    // Stop current playback if any
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current = null;
+    }
+
+    const audio = new Audio(audioFiles[index].url);
+    audioPlayerRef.current = audio;
+    setPlayingIndex(index);
+
+    audio.onended = () => {
+      setPlayingIndex(null);
+      audioPlayerRef.current = null;
+    };
+
+    audio.onerror = () => {
+      setPlayingIndex(null);
+      audioPlayerRef.current = null;
+      setError("Failed to play audio. The file may be corrupted.");
+    };
+
+    audio.play().catch(() => {
+      setPlayingIndex(null);
+      setError("Failed to play audio.");
+    });
+  };
+
+  const stopPlayback = () => {
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current = null;
+    }
+    setPlayingIndex(null);
+  };
+
+  // Cleanup audio player on unmount
+  useEffect(() => {
+    return () => {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+      }
+    };
+  }, []);
 
   const startRecording = async () => {
     setError(null);
@@ -92,9 +155,10 @@ export default function VoicePreservationPage() {
         const file = new File([blob], `recording-${Date.now()}.webm`, {
           type: "audio/webm",
         });
-        setAudioFiles((prev) => [...prev, file]);
+        const url = URL.createObjectURL(blob);
+        setAudioFiles((prev) => [...prev, { file, url }]);
         stream.getTracks().forEach((track) => track.stop());
-        setSuccess("Recording saved! You can record more or upload your samples.");
+        setSuccess("Recording saved! Click play to listen, or record more samples.");
       };
 
       mediaRecorder.onerror = () => {
@@ -146,8 +210,8 @@ export default function VoicePreservationPage() {
 
     try {
       const formData = new FormData();
-      audioFiles.forEach((file) => {
-        formData.append("audio", file);
+      audioFiles.forEach((af) => {
+        formData.append("audio", af.file);
       });
 
       const res = await fetch("/api/ai/voice", {
@@ -163,6 +227,8 @@ export default function VoicePreservationPage() {
 
       setSuccess("Your voice has been preserved successfully!");
       setVoiceStatus((prev) => prev ? { ...prev, hasVoice: true, voiceEnabled: true } : null);
+      // Cleanup URLs before clearing
+      audioFiles.forEach((af) => URL.revokeObjectURL(af.url));
       setAudioFiles([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to preserve voice");
@@ -367,24 +433,43 @@ export default function VoicePreservationPage() {
           {audioFiles.length > 0 && (
             <div className="mb-6">
               <h3 className="font-semibold text-slate-900 mb-3">
-                Selected Audio ({audioFiles.length} file{audioFiles.length !== 1 ? "s" : ""})
+                Your Audio Samples ({audioFiles.length} file{audioFiles.length !== 1 ? "s" : ""})
               </h3>
               <div className="space-y-2">
-                {audioFiles.map((file, index) => (
+                {audioFiles.map((af, index) => (
                   <div
                     key={index}
-                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                    className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                      playingIndex === index ? "bg-purple-100 border border-purple-300" : "bg-slate-50"
+                    }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Volume2 className="w-5 h-5 text-slate-400" />
-                      <span className="text-slate-700">{file.name}</span>
-                      <span className="text-slate-400 text-sm">
-                        ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                      </span>
+                      <button
+                        onClick={() => playingIndex === index ? stopPlayback() : playAudio(index)}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+                          playingIndex === index
+                            ? "bg-purple-500 text-white"
+                            : "bg-purple-100 text-purple-600 hover:bg-purple-200"
+                        }`}
+                        title={playingIndex === index ? "Stop" : "Play"}
+                      >
+                        {playingIndex === index ? (
+                          <Square className="w-4 h-4" />
+                        ) : (
+                          <Play className="w-4 h-4 ml-0.5" />
+                        )}
+                      </button>
+                      <div>
+                        <span className="text-slate-700 font-medium">{af.file.name}</span>
+                        <span className="text-slate-400 text-sm ml-2">
+                          ({(af.file.size / 1024 / 1024).toFixed(2)} MB)
+                        </span>
+                      </div>
                     </div>
                     <button
                       onClick={() => removeFile(index)}
-                      className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Remove"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
