@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Mic, Upload, Trash2, Volume2, Loader2, CheckCircle, AlertCircle, MicOff } from "lucide-react";
 
 export default function VoicePreservationPage() {
@@ -20,7 +20,7 @@ export default function VoicePreservationPage() {
   const chunksRef = useRef<Blob[]>([]);
 
   // Fetch voice status on mount
-  useState(() => {
+  useEffect(() => {
     fetch("/api/ai/voice")
       .then((res) => res.json())
       .then((data) => {
@@ -31,7 +31,7 @@ export default function VoicePreservationPage() {
       .catch(() => {
         // Ignore errors on initial load
       });
-  });
+  }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
