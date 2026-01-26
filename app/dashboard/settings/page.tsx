@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import {
   User,
   CreditCard,
@@ -17,6 +18,8 @@ import {
   UserPlus,
   Trash2,
   X,
+  Loader2,
+  CheckCircle,
 } from "lucide-react";
 
 type TabType = "profile" | "account" | "trustee" | "notifications" | "danger";
@@ -30,8 +33,11 @@ const tabs = [
 ];
 
 export default function SettingsPage() {
-  const { data: session } = useSession();
+  const { data: session, update: updateSession } = useSession();
   const [activeTab, setActiveTab] = useState<TabType>("profile");
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [user, setUser] = useState({
     name: "",
     email: "",
@@ -45,7 +51,7 @@ export default function SettingsPage() {
   });
   const [trustee, setTrustee] = useState<{ name: string; email: string; relationship: string } | null>(null);
 
-  // Load user data from session
+  // Load user data from session and API
   useEffect(() => {
     if (session?.user) {
       const initials = session.user.name
@@ -62,6 +68,22 @@ export default function SettingsPage() {
         avatar: initials,
         plan: (session.user.plan || "free").toLowerCase(),
       }));
+
+      // Fetch additional profile data
+      fetch("/api/user/profile")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.user) {
+            setUser((prev) => ({
+              ...prev,
+              phone: data.user.phone || "",
+              birthday: data.user.birthday ? data.user.birthday.split("T")[0] : "",
+              storageUsed: data.user.storageUsed || 0,
+              messagesCreated: data.user.messageCount || 0,
+            }));
+          }
+        })
+        .catch(console.error);
     }
   }, [session]);
   const [notifications, setNotifications] = useState({
@@ -77,9 +99,47 @@ export default function SettingsPage() {
     relationship: "Spouse",
   });
 
-  const handleProfileSave = () => {
-    console.log("Profile saved:", user);
-    alert("Profile saved successfully!");
+  const handleProfileSave = async () => {
+    setIsSaving(true);
+    setSaveError("");
+    setSaveSuccess(false);
+
+    try {
+      const res = await fetch("/api/user/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: user.name,
+          phone: user.phone,
+          birthday: user.birthday,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to save profile");
+      }
+
+      // Update session with new name
+      await updateSession({ name: user.name });
+
+      // Update avatar initials
+      const initials = user.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2);
+      setUser((prev) => ({ ...prev, avatar: initials }));
+
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save profile");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleAddTrustee = () => {
@@ -187,11 +247,32 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {saveError && (
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+          {saveError}
+        </div>
+      )}
+
+      {saveSuccess && (
+        <div className="p-4 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm flex items-center gap-2">
+          <CheckCircle className="w-5 h-5" />
+          Profile saved successfully!
+        </div>
+      )}
+
       <button
         onClick={handleProfileSave}
-        className="px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
+        disabled={isSaving}
+        className="px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
       >
-        Save Changes
+        {isSaving ? (
+          <>
+            <Loader2 className="w-5 h-5 animate-spin" />
+            Saving...
+          </>
+        ) : (
+          "Save Changes"
+        )}
       </button>
     </div>
   );
@@ -206,15 +287,21 @@ export default function SettingsPage() {
             {getPlanBadge()}
           </div>
           {user.plan === "free" ? (
-            <button className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 transition-all flex items-center gap-2">
+            <Link
+              href="/dashboard/upgrade"
+              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 transition-all flex items-center gap-2"
+            >
               <Sparkles className="w-4 h-4" />
               Upgrade Plan
-            </button>
+            </Link>
           ) : (
-            <button className="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold hover:bg-white transition-colors flex items-center gap-2">
+            <Link
+              href="/dashboard/upgrade"
+              className="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold hover:bg-white transition-colors flex items-center gap-2"
+            >
               <ExternalLink className="w-4 h-4" />
               Manage Subscription
-            </button>
+            </Link>
           )}
         </div>
 

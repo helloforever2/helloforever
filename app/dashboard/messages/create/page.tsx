@@ -359,7 +359,46 @@ export default function CreateMessagePage() {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // Helper function to upload media to S3
+  const uploadMedia = async (messageId: string, blob: Blob, type: "video" | "audio"): Promise<string | null> => {
+    try {
+      // Get presigned upload URL
+      const uploadResponse = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messageId,
+          contentType: blob.type,
+          type,
+        }),
+      });
+
+      if (!uploadResponse.ok) {
+        console.error("Failed to get upload URL");
+        return null;
+      }
+
+      const { uploadUrl, publicUrl } = await uploadResponse.json();
+
+      // Upload file directly to S3
+      const uploadResult = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": blob.type },
+        body: blob,
+      });
+
+      if (!uploadResult.ok) {
+        console.error("Failed to upload to S3");
+        return null;
+      }
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Media upload error:", error);
+      return null;
+    }
+  };
+
   const handleSave = async (asDraft: boolean = false) => {
     if (!formData.recipient) return;
 
@@ -367,6 +406,7 @@ export default function CreateMessagePage() {
     setErrors({});
 
     try {
+      // Step 1: Create message
       const response = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -395,6 +435,40 @@ export default function CreateMessagePage() {
           return;
         }
         throw new Error(data.error || "Failed to save message");
+      }
+
+      const messageId = data.data.id;
+
+      // Step 2: Upload media if present (video/audio)
+      if (formData.messageType !== "TEXT") {
+        let mediaBlob: Blob | null = null;
+
+        // Get the blob from recording or uploaded file
+        if (chunksRef.current.length > 0) {
+          const mimeType = formData.messageType === "VIDEO"
+            ? "video/webm;codecs=vp9,opus"
+            : "audio/webm;codecs=opus";
+          mediaBlob = new Blob(chunksRef.current, { type: mimeType });
+        } else if (uploadedFile) {
+          mediaBlob = uploadedFile;
+        }
+
+        if (mediaBlob) {
+          const mediaType = formData.messageType === "VIDEO" ? "video" : "audio";
+          const publicUrl = await uploadMedia(messageId, mediaBlob, mediaType);
+
+          // Step 3: Update message with media URL
+          if (publicUrl) {
+            await fetch("/api/messages", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: messageId,
+                content: publicUrl,
+              }),
+            });
+          }
+        }
       }
 
       setShowSuccessToast(true);

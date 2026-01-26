@@ -19,6 +19,8 @@ import {
   Trash2,
   ArrowRight,
   Loader2,
+  MessageSquare,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -236,14 +238,48 @@ export default function DashboardPage() {
             Add Recipient
           </Link>
           <Link
-            href="/dashboard/trustee"
+            href="/dashboard/voice"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border-2 border-slate-200 text-slate-700 font-semibold hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700 transition-all"
+          >
+            <Mic className="w-5 h-5" />
+            Voice Preservation
+          </Link>
+          <Link
+            href="/dashboard/trustee"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border-2 border-slate-200 text-slate-700 font-semibold hover:border-green-300 hover:bg-green-50 hover:text-green-700 transition-all"
           >
             <Shield className="w-5 h-5" />
             Invite Trustee
           </Link>
         </div>
       </div>
+
+      {/* Premium Features Banner */}
+      {session?.user?.plan?.toLowerCase() !== "free" && (
+        <div className="bg-gradient-to-r from-purple-500 to-blue-600 rounded-2xl p-6 text-white">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">AI Features Unlocked</h3>
+                <p className="text-purple-100 text-sm">
+                  Voice preservation and AI conversations are available for your recipients
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Link
+                href="/dashboard/voice"
+                className="px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors font-medium text-sm"
+              >
+                Preserve Voice
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recent Messages */}
       {hasMessages ? (

@@ -148,6 +148,73 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PATCH /api/messages - Update a message (e.g., add media URL after upload)
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const { id, content, thumbnail } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Message ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Verify message belongs to user
+    const existingMessage = await prisma.message.findFirst({
+      where: {
+        id,
+        userId: session.user.id,
+      },
+    });
+
+    if (!existingMessage) {
+      return NextResponse.json(
+        { error: "Message not found" },
+        { status: 404 }
+      );
+    }
+
+    // Update message
+    const updateData: { content?: string; thumbnail?: string } = {};
+    if (content !== undefined) updateData.content = content;
+    if (thumbnail !== undefined) updateData.thumbnail = thumbnail;
+
+    const message = await prisma.message.update({
+      where: { id },
+      data: updateData,
+      include: {
+        recipient: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            relationship: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json({ message: "Message updated successfully", data: message });
+  } catch (error) {
+    console.error("Update message error:", error);
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 }
+    );
+  }
+}
+
 // GET /api/messages - Fetch user's messages
 export async function GET() {
   try {
