@@ -35,7 +35,7 @@ export default function ForgotPasswordPage() {
       }
 
       setIsSuccess(true);
-    } catch (err) {
+    } catch {
       // For security, show success even if email doesn't exist
       setIsSuccess(true);
     } finally {

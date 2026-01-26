@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     if (user) {
       // Generate reset token
       const resetToken = crypto.randomBytes(32).toString("hex");
-      const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
+      // Token expires in 1 hour (would be stored in DB in full implementation)
 
       // Store token in database (you'd need to add this field to your schema)
       // For now, we'll just send the email with a mock flow

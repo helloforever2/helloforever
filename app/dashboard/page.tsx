@@ -19,7 +19,6 @@ import {
   Trash2,
   ArrowRight,
   Loader2,
-  MessageSquare,
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";

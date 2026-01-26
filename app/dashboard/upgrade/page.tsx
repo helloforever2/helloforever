@@ -5,13 +5,10 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
   Check,
-  Sparkles,
   Video,
   Mic,
   MessageSquare,
-  HardDrive,
   Shield,
-  Users,
   Heart,
   Zap,
   Crown,

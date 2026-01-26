@@ -399,7 +399,7 @@ export default function CreateMessagePage() {
     }
   };
 
-  const handleSave = async (asDraft: boolean = false) => {
+  const handleSave = async () => {
     if (!formData.recipient) return;
 
     setIsSaving(true);
@@ -1474,14 +1474,14 @@ export default function CreateMessagePage() {
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-4 pt-4">
         <button
-          onClick={() => handleSave(true)}
+          onClick={() => handleSave()}
           disabled={isSaving}
           className="flex-1 px-6 py-4 rounded-xl border-2 border-slate-200 font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Save as Draft
         </button>
         <button
-          onClick={() => handleSave(false)}
+          onClick={() => handleSave()}
           disabled={isSaving}
           className="flex-1 px-6 py-4 rounded-xl bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
         >

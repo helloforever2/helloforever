@@ -70,6 +70,7 @@ export default function ChatPage({ params }: { params: { token: string } }) {
 
   useEffect(() => {
     fetchConversation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.token]);
 
   useEffect(() => {
