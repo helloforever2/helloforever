@@ -14,6 +14,7 @@ export default function VoicePreservationPage() {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isStartingRecording, setIsStartingRecording] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -54,15 +55,28 @@ export default function VoicePreservationPage() {
 
   const startRecording = async () => {
     setError(null);
+    setSuccess(null);
+    setIsStartingRecording(true);
 
     // Check for browser support
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setError("Your browser does not support audio recording. Please try a modern browser like Chrome, Firefox, or Safari.");
+      setIsStartingRecording(false);
       return;
     }
 
     try {
+      // Request microphone permission
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Check if MediaRecorder is supported
+      if (typeof MediaRecorder === "undefined") {
+        setError("Your browser does not support MediaRecorder. Please try Chrome or Firefox.");
+        stream.getTracks().forEach((track) => track.stop());
+        setIsStartingRecording(false);
+        return;
+      }
+
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
@@ -83,20 +97,32 @@ export default function VoicePreservationPage() {
         setSuccess("Recording saved! You can record more or upload your samples.");
       };
 
+      mediaRecorder.onerror = () => {
+        setError("Recording failed. Please try again.");
+        setIsRecording(false);
+      };
+
       mediaRecorder.start();
       setIsRecording(true);
-      setSuccess(null);
+      setIsStartingRecording(false);
     } catch (err) {
+      setIsStartingRecording(false);
       if (err instanceof Error) {
         if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-          setError("Microphone access denied. Please allow microphone access in your browser settings and try again.");
-        } else if (err.name === "NotFoundError") {
+          setError("Microphone access denied. Please click the lock icon in your browser's address bar and allow microphone access, then try again.");
+        } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
           setError("No microphone found. Please connect a microphone and try again.");
+        } else if (err.name === "NotReadableError" || err.name === "TrackStartError") {
+          setError("Microphone is being used by another application. Please close other apps using the microphone and try again.");
+        } else if (err.name === "OverconstrainedError") {
+          setError("Could not access your microphone with the required settings.");
+        } else if (err.name === "SecurityError") {
+          setError("Microphone access is blocked. This site must be served over HTTPS to use the microphone.");
         } else {
-          setError(`Failed to access microphone: ${err.message}`);
+          setError(`Microphone error: ${err.message}`);
         }
       } else {
-        setError("Failed to access microphone. Please grant permission and try again.");
+        setError("Failed to access microphone. Please check your browser settings and try again.");
       }
     }
   };
@@ -291,14 +317,21 @@ export default function VoicePreservationPage() {
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <button
               onClick={isRecording ? stopRecording : startRecording}
-              disabled={isUploading}
+              disabled={isUploading || isStartingRecording}
               className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-semibold transition-all ${
                 isRecording
                   ? "bg-red-500 text-white animate-pulse"
+                  : isStartingRecording
+                  ? "bg-purple-400 text-white cursor-wait"
                   : "bg-gradient-to-r from-purple-500 to-blue-600 text-white hover:shadow-lg"
               } disabled:opacity-50`}
             >
-              {isRecording ? (
+              {isStartingRecording ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Starting...
+                </>
+              ) : isRecording ? (
                 <>
                   <MicOff className="w-5 h-5" />
                   Stop Recording
