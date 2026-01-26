@@ -116,6 +116,26 @@ export default function VoicePreservationPage() {
     };
   }, []);
 
+  // Get supported MIME type for recording (Safari uses different formats)
+  const getSupportedMimeType = (): { mimeType: string; extension: string } => {
+    const types = [
+      { mimeType: "audio/webm;codecs=opus", extension: "webm" },
+      { mimeType: "audio/webm", extension: "webm" },
+      { mimeType: "audio/mp4", extension: "m4a" },
+      { mimeType: "audio/mpeg", extension: "mp3" },
+      { mimeType: "audio/ogg;codecs=opus", extension: "ogg" },
+      { mimeType: "audio/wav", extension: "wav" },
+      { mimeType: "", extension: "webm" }, // Let browser choose default
+    ];
+
+    for (const type of types) {
+      if (type.mimeType === "" || MediaRecorder.isTypeSupported(type.mimeType)) {
+        return type;
+      }
+    }
+    return { mimeType: "", extension: "webm" };
+  };
+
   const startRecording = async () => {
     setError(null);
     setSuccess(null);
@@ -123,7 +143,7 @@ export default function VoicePreservationPage() {
 
     // Check for browser support
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setError("Your browser does not support audio recording. Please try a modern browser like Chrome, Firefox, or Safari.");
+      setError("Your browser does not support audio recording. Please update your browser or try Safari on iOS 14.3+.");
       setIsStartingRecording(false);
       return;
     }
@@ -134,13 +154,29 @@ export default function VoicePreservationPage() {
 
       // Check if MediaRecorder is supported
       if (typeof MediaRecorder === "undefined") {
-        setError("Your browser does not support MediaRecorder. Please try Chrome or Firefox.");
+        setError("Your browser does not support audio recording. Please update to iOS 14.3+ or try a different browser.");
         stream.getTracks().forEach((track) => track.stop());
         setIsStartingRecording(false);
         return;
       }
 
-      const mediaRecorder = new MediaRecorder(stream);
+      // Get supported format
+      const { mimeType, extension } = getSupportedMimeType();
+
+      // Create MediaRecorder with appropriate options
+      const options: MediaRecorderOptions = {};
+      if (mimeType) {
+        options.mimeType = mimeType;
+      }
+
+      let mediaRecorder: MediaRecorder;
+      try {
+        mediaRecorder = new MediaRecorder(stream, options);
+      } catch {
+        // Fallback: try without options
+        mediaRecorder = new MediaRecorder(stream);
+      }
+
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
@@ -151,9 +187,15 @@ export default function VoicePreservationPage() {
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const file = new File([blob], `recording-${Date.now()}.webm`, {
-          type: "audio/webm",
+        // Use the actual MIME type from the recorder if available
+        const actualMimeType = mediaRecorder.mimeType || mimeType || "audio/webm";
+        const actualExtension = actualMimeType.includes("mp4") ? "m4a" :
+                               actualMimeType.includes("ogg") ? "ogg" :
+                               actualMimeType.includes("wav") ? "wav" : extension;
+
+        const blob = new Blob(chunksRef.current, { type: actualMimeType });
+        const file = new File([blob], `recording-${Date.now()}.${actualExtension}`, {
+          type: actualMimeType,
         });
         const url = URL.createObjectURL(blob);
         setAudioFiles((prev) => [...prev, { file, url }]);
@@ -164,24 +206,26 @@ export default function VoicePreservationPage() {
       mediaRecorder.onerror = () => {
         setError("Recording failed. Please try again.");
         setIsRecording(false);
+        stream.getTracks().forEach((track) => track.stop());
       };
 
-      mediaRecorder.start();
+      // Start recording - use timeslice for better compatibility
+      mediaRecorder.start(1000);
       setIsRecording(true);
       setIsStartingRecording(false);
     } catch (err) {
       setIsStartingRecording(false);
       if (err instanceof Error) {
         if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-          setError("Microphone access denied. Please click the lock icon in your browser's address bar and allow microphone access, then try again.");
+          setError("Microphone access denied. On iPhone: Go to Settings > Safari > Microphone and allow access for this site.");
         } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
-          setError("No microphone found. Please connect a microphone and try again.");
+          setError("No microphone found. Please check your device settings.");
         } else if (err.name === "NotReadableError" || err.name === "TrackStartError") {
-          setError("Microphone is being used by another application. Please close other apps using the microphone and try again.");
+          setError("Microphone is busy. Please close other apps using the microphone (like Phone or FaceTime) and try again.");
         } else if (err.name === "OverconstrainedError") {
           setError("Could not access your microphone with the required settings.");
         } else if (err.name === "SecurityError") {
-          setError("Microphone access is blocked. This site must be served over HTTPS to use the microphone.");
+          setError("Microphone access is blocked. Make sure you're using HTTPS.");
         } else {
           setError(`Microphone error: ${err.message}`);
         }
