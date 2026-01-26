@@ -19,6 +19,7 @@ import {
   Sparkles,
   User,
   Loader2,
+  Mic,
 } from "lucide-react";
 
 const navItems = [
@@ -26,6 +27,7 @@ const navItems = [
   { href: "/dashboard/messages", icon: Mail, label: "Messages" },
   { href: "/dashboard/recipients", icon: Users, label: "Recipients" },
   { href: "/dashboard/trustee", icon: Shield, label: "Trustee" },
+  { href: "/dashboard/voice", icon: Mic, label: "Voice" },
   { href: "/dashboard/settings", icon: Settings, label: "Settings" },
 ];
 

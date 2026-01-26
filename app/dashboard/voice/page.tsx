@@ -53,6 +53,14 @@ export default function VoicePreservationPage() {
   };
 
   const startRecording = async () => {
+    setError(null);
+
+    // Check for browser support
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError("Your browser does not support audio recording. Please try a modern browser like Chrome, Firefox, or Safari.");
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
@@ -72,12 +80,24 @@ export default function VoicePreservationPage() {
         });
         setAudioFiles((prev) => [...prev, file]);
         stream.getTracks().forEach((track) => track.stop());
+        setSuccess("Recording saved! You can record more or upload your samples.");
       };
 
       mediaRecorder.start();
       setIsRecording(true);
-    } catch {
-      setError("Failed to access microphone. Please grant permission and try again.");
+      setSuccess(null);
+    } catch (err) {
+      if (err instanceof Error) {
+        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+          setError("Microphone access denied. Please allow microphone access in your browser settings and try again.");
+        } else if (err.name === "NotFoundError") {
+          setError("No microphone found. Please connect a microphone and try again.");
+        } else {
+          setError(`Failed to access microphone: ${err.message}`);
+        }
+      } else {
+        setError("Failed to access microphone. Please grant permission and try again.");
+      }
     }
   };
 
