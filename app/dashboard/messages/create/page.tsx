@@ -12,6 +12,7 @@ import {
   Upload,
   X,
   Play,
+  Pause,
   Square,
   Calendar,
   Clock,
@@ -59,6 +60,41 @@ const steps = [
   { number: 5, title: "Review" },
 ];
 
+// Get supported MIME type for recording (Safari uses different formats)
+const getSupportedMimeType = (isVideo: boolean): { mimeType: string; extension: string } => {
+  if (isVideo) {
+    const videoTypes = [
+      { mimeType: "video/webm;codecs=vp9,opus", extension: "webm" },
+      { mimeType: "video/webm;codecs=vp8,opus", extension: "webm" },
+      { mimeType: "video/webm", extension: "webm" },
+      { mimeType: "video/mp4", extension: "mp4" },
+      { mimeType: "", extension: "webm" },
+    ];
+    for (const type of videoTypes) {
+      if (type.mimeType === "" || MediaRecorder.isTypeSupported(type.mimeType)) {
+        return type;
+      }
+    }
+    return { mimeType: "", extension: "webm" };
+  } else {
+    const audioTypes = [
+      { mimeType: "audio/webm;codecs=opus", extension: "webm" },
+      { mimeType: "audio/webm", extension: "webm" },
+      { mimeType: "audio/mp4", extension: "m4a" },
+      { mimeType: "audio/mpeg", extension: "mp3" },
+      { mimeType: "audio/ogg;codecs=opus", extension: "ogg" },
+      { mimeType: "audio/wav", extension: "wav" },
+      { mimeType: "", extension: "webm" },
+    ];
+    for (const type of audioTypes) {
+      if (type.mimeType === "" || MediaRecorder.isTypeSupported(type.mimeType)) {
+        return type;
+      }
+    }
+    return { mimeType: "", extension: "webm" };
+  }
+};
+
 export default function CreateMessagePage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
@@ -80,6 +116,7 @@ export default function CreateMessagePage() {
 
   // Video/Audio recording states
   const [isRecording, setIsRecording] = useState(false);
+  const [isStartingRecording, setIsStartingRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [hasRecording, setHasRecording] = useState(false);
   const [activeTab, setActiveTab] = useState<"record" | "upload">("record");
@@ -92,10 +129,14 @@ export default function CreateMessagePage() {
 
   // Refs for media recording
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Audio playback state
+  const [isPlaying, setIsPlaying] = useState(false);
 
   // Recipient form states
   const [showNewRecipientForm, setShowNewRecipientForm] = useState(false);
@@ -184,13 +225,21 @@ export default function CreateMessagePage() {
     } catch (err) {
       console.error("Error accessing media devices:", err);
       if (err instanceof Error) {
-        if (err.name === "NotAllowedError") {
-          setCameraError("Camera/microphone access denied. Please allow access in your browser settings.");
-        } else if (err.name === "NotFoundError") {
-          setCameraError("No camera or microphone found on your device.");
+        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+          setCameraError("Camera/microphone access denied. On iPhone: Go to Settings > Safari > Camera/Microphone and allow access.");
+        } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+          setCameraError("No camera or microphone found. Please check your device settings.");
+        } else if (err.name === "NotReadableError" || err.name === "TrackStartError") {
+          setCameraError("Camera/microphone is busy. Please close other apps using it and try again.");
+        } else if (err.name === "OverconstrainedError") {
+          setCameraError("Could not access camera/microphone with the required settings.");
+        } else if (err.name === "SecurityError") {
+          setCameraError("Camera/microphone access blocked. Make sure you're using HTTPS.");
         } else {
-          setCameraError("Could not access camera/microphone. Please try again.");
+          setCameraError(`Error: ${err.message}`);
         }
+      } else {
+        setCameraError("Could not access camera/microphone. Please check your browser settings.");
       }
     }
   }, [formData.messageType]);
@@ -218,49 +267,133 @@ export default function CreateMessagePage() {
   }, [stopStream, recordedUrl]);
 
   const handleStartRecording = async () => {
-    if (!streamRef.current) {
-      await startStream();
-      // Wait a moment for stream to be ready
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
+    setCameraError(null);
+    setIsStartingRecording(true);
 
-    if (!streamRef.current) {
-      setCameraError("Could not start recording. Please try again.");
+    // Check for browser support
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraError("Your browser does not support recording. Please update your browser or try Safari on iOS 14.3+.");
+      setIsStartingRecording(false);
       return;
     }
 
-    chunksRef.current = [];
+    // Check if MediaRecorder is supported
+    if (typeof MediaRecorder === "undefined") {
+      setCameraError("Your browser does not support recording. Please update to iOS 14.3+ or try a different browser.");
+      setIsStartingRecording(false);
+      return;
+    }
 
-    const mimeType = formData.messageType === "VIDEO"
-      ? "video/webm;codecs=vp9,opus"
-      : "audio/webm;codecs=opus";
+    const isVideo = formData.messageType === "VIDEO";
 
     try {
-      const mediaRecorder = new MediaRecorder(streamRef.current, { mimeType });
+      // Request camera/microphone permission directly
+      const constraints = isVideo
+        ? { video: { facingMode: "user" }, audio: true }
+        : { audio: true };
+
+      console.log("Requesting media with constraints:", constraints);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log("Got stream:", stream);
+
+      streamRef.current = stream;
+
+      // Set up video preview if recording video
+      if (isVideo && videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+
+      setIsStreamReady(true);
+
+      // Get supported format for this browser
+      const { mimeType } = getSupportedMimeType(isVideo);
+      console.log("Using MIME type:", mimeType);
+
+      // Create MediaRecorder with appropriate options
+      const options: MediaRecorderOptions = {};
+      if (mimeType) {
+        options.mimeType = mimeType;
+      }
+
+      let mediaRecorder: MediaRecorder;
+      try {
+        mediaRecorder = new MediaRecorder(stream, options);
+      } catch {
+        // Fallback: try without options
+        console.log("Fallback: creating MediaRecorder without options");
+        mediaRecorder = new MediaRecorder(stream);
+      }
+
       mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
+        console.log("Data available:", event.data.size);
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
         }
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: mimeType });
+        console.log("Recording stopped, chunks:", chunksRef.current.length);
+        // Use the actual MIME type from the recorder if available
+        const actualMimeType = mediaRecorder.mimeType || mimeType || (isVideo ? "video/webm" : "audio/webm");
+        const blob = new Blob(chunksRef.current, { type: actualMimeType });
+        console.log("Created blob:", blob.size, blob.type);
         setRecordedBlob(blob);
         const url = URL.createObjectURL(blob);
         setRecordedUrl(url);
         setHasRecording(true);
-        stopStream();
+
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+        }
+        setIsStreamReady(false);
       };
 
-      mediaRecorder.start(1000); // Collect data every second
+      mediaRecorder.onerror = (event) => {
+        console.error("MediaRecorder error:", event);
+        setCameraError("Recording failed. Please try again.");
+        setIsRecording(false);
+        stream.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+        setIsStreamReady(false);
+      };
+
+      // Start recording
+      mediaRecorder.start(1000);
+      console.log("Recording started");
       setIsRecording(true);
+      setIsStartingRecording(false);
       setRecordingTime(0);
       setHasRecording(false);
+
     } catch (err) {
       console.error("Error starting recording:", err);
-      setCameraError("Could not start recording. Your browser may not support this feature.");
+      setIsStartingRecording(false);
+      if (err instanceof Error) {
+        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+          setCameraError("Camera/microphone access denied. Please allow access in your browser settings. On iPhone: Settings > Safari > Camera & Microphone.");
+        } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+          setCameraError("No camera or microphone found. Please check your device.");
+        } else if (err.name === "NotReadableError" || err.name === "TrackStartError") {
+          setCameraError("Camera/microphone is busy. Close other apps using it and try again.");
+        } else if (err.name === "NotSupportedError") {
+          setCameraError("Recording format not supported. Please try a different browser.");
+        } else if (err.name === "OverconstrainedError") {
+          setCameraError("Could not access camera/microphone with required settings.");
+        } else if (err.name === "SecurityError") {
+          setCameraError("Camera/microphone blocked. Make sure you're using HTTPS.");
+        } else {
+          setCameraError(`Could not start recording: ${err.message}`);
+        }
+      } else {
+        setCameraError("Could not start recording. Please check your browser settings.");
+      }
     }
   };
 
@@ -279,7 +412,24 @@ export default function CreateMessagePage() {
     setRecordedUrl(null);
     setHasRecording(false);
     setRecordingTime(0);
+    setIsPlaying(false);
     chunksRef.current = [];
+  };
+
+  const handlePlayPauseAudio = () => {
+    if (!audioRef.current || !recordedUrl) return;
+
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play();
+      setIsPlaying(true);
+    }
+  };
+
+  const handleAudioEnded = () => {
+    setIsPlaying(false);
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -652,6 +802,7 @@ export default function CreateMessagePage() {
                   <video
                     src={recordedUrl}
                     controls
+                    playsInline
                     className="w-full h-full object-contain"
                   />
                 ) : isRecording || isStreamReady ? (
@@ -690,18 +841,40 @@ export default function CreateMessagePage() {
 
               {/* Controls */}
               <div className="p-4 flex items-center justify-center gap-4">
-                {!isRecording && !hasRecording && (
+                {!isRecording && !hasRecording && !isStartingRecording && (
                   <button
+                    type="button"
                     onClick={handleStartRecording}
-                    className="w-16 h-16 rounded-full bg-red-500 hover:bg-red-600 transition-colors flex items-center justify-center shadow-lg shadow-red-500/30"
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      handleStartRecording();
+                    }}
+                    style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                    className="w-16 h-16 rounded-full bg-red-500 hover:bg-red-600 active:bg-red-700 transition-colors flex items-center justify-center shadow-lg shadow-red-500/30 select-none"
                   >
                     <div className="w-6 h-6 rounded-full bg-white" />
                   </button>
                 )}
+                {isStartingRecording && (
+                  <button
+                    type="button"
+                    disabled
+                    className="px-6 py-3 rounded-xl bg-red-400 text-white font-semibold flex items-center gap-2 cursor-wait"
+                  >
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Starting camera...
+                  </button>
+                )}
                 {isRecording && (
                   <button
+                    type="button"
                     onClick={handleStopRecording}
-                    className="px-6 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold flex items-center gap-2 animate-pulse"
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      handleStopRecording();
+                    }}
+                    style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                    className="px-6 py-3 rounded-xl bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-semibold flex items-center gap-2 animate-pulse select-none"
                   >
                     <Square className="w-5 h-5 fill-white" />
                     Stop Recording ({formatTime(recordingTime)})
@@ -709,8 +882,14 @@ export default function CreateMessagePage() {
                 )}
                 {hasRecording && (
                   <button
+                    type="button"
                     onClick={handleDiscardRecording}
-                    className="px-6 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-semibold flex items-center gap-2"
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      handleDiscardRecording();
+                    }}
+                    style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                    className="px-6 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-semibold flex items-center gap-2 select-none"
                   >
                     <Trash2 className="w-5 h-5" />
                     Re-record
@@ -798,16 +977,36 @@ export default function CreateMessagePage() {
 
           {activeTab === "record" ? (
             <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8">
+              {/* Error Message */}
+              {cameraError && (
+                <div className="mb-6 p-4 bg-red-900/50 border border-red-700 rounded-xl">
+                  <p className="text-red-300 text-sm flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    {cameraError}
+                  </p>
+                </div>
+              )}
+
+              {/* Hidden audio element for playback */}
+              {recordedUrl && (
+                <audio
+                  ref={audioRef}
+                  src={recordedUrl}
+                  onEnded={handleAudioEnded}
+                  className="hidden"
+                />
+              )}
+
               {/* Waveform visualization placeholder */}
               <div className="h-32 flex items-center justify-center gap-1 mb-6">
                 {Array.from({ length: 40 }).map((_, i) => (
                   <div
                     key={i}
                     className={`w-1.5 rounded-full transition-all ${
-                      isRecording ? "bg-purple-400 animate-pulse" : "bg-slate-600"
+                      isRecording ? "bg-purple-400 animate-pulse" : isPlaying ? "bg-green-400 animate-pulse" : "bg-slate-600"
                     }`}
                     style={{
-                      height: isRecording
+                      height: isRecording || isPlaying
                         ? `${Math.random() * 80 + 20}%`
                         : hasRecording
                         ? `${Math.sin(i * 0.3) * 40 + 50}%`
@@ -822,23 +1021,60 @@ export default function CreateMessagePage() {
               <div className="text-center mb-6">
                 <span className="text-4xl font-mono text-white">{formatTime(recordingTime)}</span>
                 {isRecording && <p className="text-purple-400 mt-2 animate-pulse">Recording...</p>}
-                {hasRecording && <p className="text-green-400 mt-2">Recording saved!</p>}
+                {hasRecording && !isPlaying && <p className="text-green-400 mt-2">Recording saved! Click play to preview.</p>}
+                {isPlaying && <p className="text-green-400 mt-2 animate-pulse">Playing...</p>}
               </div>
+
+              {/* Visible audio player for recorded audio */}
+              {hasRecording && recordedUrl && (
+                <div className="mb-6 bg-white/10 rounded-xl p-4">
+                  <audio
+                    src={recordedUrl}
+                    controls
+                    className="w-full"
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    onEnded={() => setIsPlaying(false)}
+                  />
+                </div>
+              )}
 
               {/* Controls */}
               <div className="flex items-center justify-center gap-4">
-                {!isRecording && !hasRecording && (
+                {!isRecording && !hasRecording && !isStartingRecording && (
                   <button
+                    type="button"
                     onClick={handleStartRecording}
-                    className="w-16 h-16 rounded-full bg-purple-500 hover:bg-purple-600 transition-colors flex items-center justify-center shadow-lg shadow-purple-500/30"
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      handleStartRecording();
+                    }}
+                    style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                    className="w-16 h-16 rounded-full bg-purple-500 hover:bg-purple-600 active:bg-purple-700 transition-colors flex items-center justify-center shadow-lg shadow-purple-500/30 select-none"
                   >
                     <Mic className="w-8 h-8 text-white" />
                   </button>
                 )}
+                {isStartingRecording && (
+                  <button
+                    type="button"
+                    disabled
+                    className="px-6 py-3 rounded-xl bg-purple-400 text-white font-semibold flex items-center gap-2 cursor-wait"
+                  >
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Starting microphone...
+                  </button>
+                )}
                 {isRecording && (
                   <button
+                    type="button"
                     onClick={handleStopRecording}
-                    className="px-6 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold flex items-center gap-2"
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      handleStopRecording();
+                    }}
+                    style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                    className="px-6 py-3 rounded-xl bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-semibold flex items-center gap-2 select-none animate-pulse"
                   >
                     <Square className="w-5 h-5 fill-white" />
                     Stop Recording
@@ -846,16 +1082,41 @@ export default function CreateMessagePage() {
                 )}
                 {hasRecording && (
                   <div className="flex gap-3">
-                    <button className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold flex items-center gap-2">
-                      <Play className="w-5 h-5" />
-                      Play
+                    <button
+                      type="button"
+                      onClick={handlePlayPauseAudio}
+                      onTouchEnd={(e) => {
+                        e.preventDefault();
+                        handlePlayPauseAudio();
+                      }}
+                      style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                      className={`px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all select-none ${
+                        isPlaying
+                          ? "bg-green-500 hover:bg-green-600 active:bg-green-700 text-white"
+                          : "bg-white/10 hover:bg-white/20 active:bg-white/30 text-white"
+                      }`}
+                    >
+                      {isPlaying ? (
+                        <>
+                          <Pause className="w-5 h-5" />
+                          Pause
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-5 h-5" />
+                          Play
+                        </>
+                      )}
                     </button>
                     <button
-                      onClick={() => {
-                        setHasRecording(false);
-                        setRecordingTime(0);
+                      type="button"
+                      onClick={handleDiscardRecording}
+                      onTouchEnd={(e) => {
+                        e.preventDefault();
+                        handleDiscardRecording();
                       }}
-                      className="px-6 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-semibold flex items-center gap-2"
+                      style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                      className="px-6 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-semibold flex items-center gap-2 select-none"
                     >
                       <Trash2 className="w-5 h-5" />
                       Re-record
@@ -872,7 +1133,7 @@ export default function CreateMessagePage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="audio/*"
+                accept="audio/*,.m4a,.mp3,.wav,.ogg,.webm,.aac"
                 onChange={handleFileSelect}
                 className="hidden"
               />
