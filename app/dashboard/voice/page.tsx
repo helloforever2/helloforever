@@ -21,6 +21,7 @@ export default function VoicePreservationPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [isStartingRecording, setIsStartingRecording] = useState(false);
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
+  const [testClicks, setTestClicks] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -331,6 +332,22 @@ export default function VoicePreservationPage() {
         </p>
       </div>
 
+      {/* Debug Test Button - Remove after testing */}
+      <div className="mb-6 p-4 bg-yellow-100 border-2 border-yellow-400 rounded-xl">
+        <p className="text-yellow-800 mb-3 font-medium">Debug: Test if buttons work (clicks: {testClicks})</p>
+        <button
+          type="button"
+          onClick={() => {
+            setTestClicks(prev => prev + 1);
+            alert("Button clicked! Touch is working.");
+          }}
+          className="w-full py-4 bg-yellow-500 text-white font-bold text-lg rounded-xl active:bg-yellow-600"
+          style={{ touchAction: "manipulation" }}
+        >
+          TAP HERE TO TEST
+        </button>
+      </div>
+
       {/* Status Messages */}
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
@@ -343,6 +360,14 @@ export default function VoicePreservationPage() {
         <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3">
           <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
           <p className="text-green-700">{success}</p>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {voiceStatus === null && (
+        <div className="mb-6 p-6 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-3">
+          <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
+          <p className="text-slate-600">Loading voice settings...</p>
         </div>
       )}
 
@@ -393,8 +418,8 @@ export default function VoicePreservationPage() {
         </div>
       )}
 
-      {/* Upload Section */}
-      {(!voiceStatus?.hasVoice || voiceStatus?.canUseVoice) && (
+      {/* Upload Section - Show when loading, when no voice exists, or when user can update */}
+      {(voiceStatus === null || !voiceStatus.hasVoice || voiceStatus.canUseVoice) && (
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
           <h2 className="text-xl font-bold text-slate-900 mb-4">
             {voiceStatus?.hasVoice ? "Update Your Voice" : "Preserve Your Voice"}
@@ -426,14 +451,26 @@ export default function VoicePreservationPage() {
           {/* Recording / Upload Options */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <button
+              type="button"
               onClick={isRecording ? stopRecording : startRecording}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                if (!isUploading && !isStartingRecording) {
+                  if (isRecording) {
+                    stopRecording();
+                  } else {
+                    startRecording();
+                  }
+                }
+              }}
               disabled={isUploading || isStartingRecording}
-              className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-semibold transition-all ${
+              style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+              className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-semibold transition-all cursor-pointer select-none ${
                 isRecording
                   ? "bg-red-500 text-white animate-pulse"
                   : isStartingRecording
                   ? "bg-purple-400 text-white cursor-wait"
-                  : "bg-gradient-to-r from-purple-500 to-blue-600 text-white hover:shadow-lg"
+                  : "bg-gradient-to-r from-purple-500 to-blue-600 text-white hover:shadow-lg active:scale-95"
               } disabled:opacity-50`}
             >
               {isStartingRecording ? (
@@ -455,9 +492,17 @@ export default function VoicePreservationPage() {
             </button>
 
             <button
+              type="button"
               onClick={() => fileInputRef.current?.click()}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                if (!isUploading && !isRecording) {
+                  fileInputRef.current?.click();
+                }
+              }}
               disabled={isUploading || isRecording}
-              className="flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-semibold border-2 border-slate-200 text-slate-700 hover:border-purple-300 hover:bg-purple-50 transition-all disabled:opacity-50"
+              style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+              className="flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-semibold border-2 border-slate-200 text-slate-700 hover:border-purple-300 hover:bg-purple-50 transition-all cursor-pointer select-none active:scale-95 disabled:opacity-50"
             >
               <Upload className="w-5 h-5" />
               Upload Audio Files
@@ -466,7 +511,7 @@ export default function VoicePreservationPage() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="audio/*"
+              accept="audio/*,.m4a,.mp3,.wav,.ogg,.webm,.aac"
               multiple
               onChange={handleFileSelect}
               className="hidden"
